@@ -28,6 +28,19 @@ async function mapLimit(items, limit, worker) {
   return results;
 }
 
+async function mapValuesLimit(items, limit, worker) {
+  const results = new Array(items.length);
+  let index = 0;
+  async function next() {
+    while (index < items.length) {
+      const current = index++;
+      results[current] = await worker(items[current]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, next));
+  return results;
+}
+
 export class Supervisor {
   constructor({ registry, runCommand = defaultRunCommand, runCheck = defaultRunCheck, wait = sleep }) {
     this.registry = registry;
@@ -39,10 +52,12 @@ export class Supervisor {
     this.ownedPids = new Map();
     this.lastErrors = new Map();
     this.componentErrors = new Map();
+    this.statusAllInFlight = null;
   }
 
   setRegistry(registry) {
     this.registry = registry;
+    this.statusAllInFlight = null;
   }
 
   target(id) {
@@ -106,8 +121,19 @@ export class Supervisor {
     return this.checkTarget(this.target(id));
   }
 
-  async statusAll() {
-    return Promise.all(this.registry.targets.map((target) => this.checkTarget(target)));
+  statusAll() {
+    if (this.statusAllInFlight) return this.statusAllInFlight;
+    const targets = [...this.registry.targets];
+    let task;
+    task = (async () => {
+      try {
+        return await mapValuesLimit(targets, 3, (target) => this.checkTarget(target));
+      } finally {
+        if (this.statusAllInFlight === task) this.statusAllInFlight = null;
+      }
+    })();
+    this.statusAllInFlight = task;
+    return task;
   }
 
   async waitForCheck(target, key, expected = true, timeoutMs = 30000) {

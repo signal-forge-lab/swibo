@@ -4,7 +4,9 @@ import net from "node:net";
 import { expandPath, expandValue } from "./paths.js";
 import { runCommand } from "./runner.js";
 
-function tcpCheck({ host = "127.0.0.1", port, timeoutMs = 750 }) {
+const DEFAULT_NETWORK_CHECK_TIMEOUT_MS = 3000;
+
+function tcpCheck({ host = "127.0.0.1", port, timeoutMs = DEFAULT_NETWORK_CHECK_TIMEOUT_MS }) {
   return new Promise((resolve) => {
     const socket = net.createConnection({ host, port });
     const done = (ready, detail) => {
@@ -17,7 +19,7 @@ function tcpCheck({ host = "127.0.0.1", port, timeoutMs = 750 }) {
   });
 }
 
-async function httpCheck({ url, timeoutMs = 1000, expectedStatus = 200 }) {
+async function httpCheck({ url, timeoutMs = DEFAULT_NETWORK_CHECK_TIMEOUT_MS, expectedStatus = 200 }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

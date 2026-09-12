@@ -26,3 +26,19 @@ test("httpUrlFile check reads a dynamic tunnel health URL without spawning a com
   assert.equal(result.ready, true);
   assert.equal(result.detail, "HTTP 200");
 });
+
+test("default HTTP checks tolerate short local event-loop stalls without false timeout", async (t) => {
+  const server = http.createServer((_req, res) => {
+    setTimeout(() => {
+      res.writeHead(200);
+      res.end();
+    }, 1200);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const port = server.address().port;
+  const result = await runCheck({ type: "http", url: `http://127.0.0.1:${port}/healthz` });
+  assert.equal(result.ready, true);
+  assert.equal(result.detail, "HTTP 200");
+});

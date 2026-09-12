@@ -153,3 +153,44 @@ test("component lifecycle is independent from target readiness", async () => {
   assert.equal(stopped.state, "STOPPED");
   assert.deepEqual(calls, ["monitor-start", "monitor-stop"]);
 });
+
+test("statusAll coalesces concurrent callers and bounds target-check fanout", async () => {
+  const targets = Array.from({ length: 6 }, (_, index) => ({
+    id: `target-${index}`,
+    name: `Target ${index}`,
+    enabled: true,
+    startupPolicy: "manual",
+    lifecycle: { start: [], stop: [] },
+    checks: {
+      server: { type: "fake", key: `server-${index}` },
+      tunnel: { type: "fake", key: `tunnel-${index}` }
+    },
+    components: {}
+  }));
+
+  let calls = 0;
+  let active = 0;
+  let maxActive = 0;
+  const supervisor = new Supervisor({
+    registry: { version: 1, targets },
+    runCheck: async (spec) => {
+      calls += 1;
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      active -= 1;
+      return { ready: true, detail: spec.key };
+    }
+  });
+
+  const [first, second, third] = await Promise.all([
+    supervisor.statusAll(),
+    supervisor.statusAll(),
+    supervisor.statusAll()
+  ]);
+
+  assert.equal(calls, 12, "concurrent callers should share one status sweep");
+  assert.ok(maxActive <= 6, `expected at most 3 targets × 2 checks, saw ${maxActive} checks`);
+  assert.deepEqual(second, first);
+  assert.deepEqual(third, first);
+});
