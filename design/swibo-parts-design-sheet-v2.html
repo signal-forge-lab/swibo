@@ -158,12 +158,12 @@
     .lamp.danger { background: var(--danger); }
 
     .signal-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line-strong); background: #101316; }
-    .signal { min-height: 82px; padding: 14px 16px; }
+    .signal { min-height: 52px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .signal + .signal { border-left: 1px solid var(--line); }
-    .signal-label { color: var(--text-3); font-size: 12px; font-weight: 700; }
-    .signal-value { display: flex; align-items: baseline; gap: 8px; margin-top: 10px; }
-    .signal-value strong { font: 28px/1 "Cascadia Mono", Consolas, monospace; font-weight: 520; }
-    .signal-value span { color: var(--text-3); font-size: 12px; }
+    .signal-label { color: var(--text-3); font-size: 12px; line-height: 1; font-weight: 700; }
+    .signal-value { display: flex; align-items: center; gap: 8px; }
+    .signal-value strong { font: 22px/1 "Cascadia Mono", Consolas, monospace; font-weight: 520; }
+    .signal-value span { display: none; }
 
     .toolbar {
       display: flex;
@@ -172,7 +172,7 @@
       gap: 16px;
       margin-bottom: 12px;
     }
-    .toolbar-group { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+    .toolbar-group { display: flex; align-items: center; flex-wrap: nowrap; gap: 7px; white-space: nowrap; }
     .rect-btn {
       min-height: 38px;
       display: inline-flex;
@@ -195,8 +195,9 @@
     .target-list { border: 1px solid var(--line-strong); background: #101316; }
     .target-columns,
     .target-summary {
+      min-width: 560px;
       display: grid;
-      grid-template-columns: minmax(280px, 1.15fr) minmax(300px, .95fr) minmax(300px, .95fr);
+      grid-template-columns: minmax(180px, 1.25fr) minmax(165px, .9fr) minmax(165px, .9fr) 42px;
       align-items: center;
     }
     .target-columns {
@@ -211,7 +212,7 @@
     }
     .target-columns > span { padding: 0 14px; }
     .target-columns > span + span { border-left: 1px solid #252b30; }
-    .target-item { background: #14181b; }
+    .target-item { min-width: 560px; background: #14181b; }
     .target-item + .target-item { border-top: 1px solid var(--line); }
     .target-summary {
       min-height: 56px;
@@ -241,8 +242,8 @@
       place-items: center;
       padding: 0;
       color: var(--text-2);
-      background: var(--surface-3);
-      border: 1px solid var(--line-strong);
+      background: transparent;
+      border: 1px solid transparent;
       border-radius: 5px;
     }
     .compact-btn:hover { color: var(--text); background: var(--surface-4); border-color: var(--line-strong); }
@@ -251,15 +252,21 @@
     .compact-btn:disabled { opacity: .28; }
     .compact-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; }
 
+    .more-cell { position: relative; min-height: 56px; display: flex; align-items: center; justify-content: center; padding: 7px 4px; border-left: 1px solid #252b30; }
+    .more-trigger { width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; color: var(--text-3); background: transparent; border: 1px solid transparent; border-radius: 5px; }
+    .more-trigger:hover { color: var(--text); background: var(--surface-4); border-color: var(--line-strong); }
+    .more-trigger svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
+
     .target-detail {
+      min-width: 560px;
       margin-left: 0;
       border-top: 1px solid var(--line);
       background: #101417;
     }
     .target-detail-inner {
       display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(280px, .75fr);
-      padding-left: 52px;
+      grid-template-columns: minmax(300px, 1.35fr) minmax(210px, .75fr);
+      padding-left: 42px;
     }
     .detail-block { min-width: 0; padding: 14px 16px 15px; }
     .detail-block + .detail-block { border-left: 1px solid var(--line); }
@@ -274,7 +281,6 @@
     .meta-line { display: grid; grid-template-columns: 94px minmax(0, 1fr); gap: 12px; min-height: 34px; align-items: center; border-top: 1px solid #252b30; }
     .meta-line span { color: var(--text-3); font-size: 12px; }
     .meta-line strong { color: var(--text-2); font-size: 12px; font-weight: 600; text-align: right; }
-    .detail-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 7px; padding-top: 12px; }
 
     .state-matrix { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); }
     .state-cell { min-height: 116px; padding: 15px; background: var(--surface-2); }
@@ -289,20 +295,6 @@
     .modal-close-demo svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
     .scroll-demo { height: 92px; margin-top: 12px; overflow: auto; background: #0b0d0f; border: 1px solid #293037; }
     .scroll-demo-inner { height: 210px; padding: 12px; color: var(--text-3); font: 12px/1.55 "Cascadia Mono", Consolas, monospace; }
-
-    .popover {
-      width: min(430px, 100%);
-      padding: 14px;
-      background: #101316;
-      border: 1px solid var(--line-strong);
-      border-radius: var(--r-2);
-    }
-    .popover-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
-    .popover-title strong { font-size: 13px; }
-    .popover-title code { color: var(--text-3); font-size: 12px; }
-    .data-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 16px; padding: 7px 0; border-top: 1px solid #272d32; }
-    .data-row span { color: var(--text-3); font-size: 12px; }
-    .data-row strong { overflow-wrap: anywhere; color: var(--text-2); font: 12px/1.5 "Cascadia Mono", Consolas, monospace; font-weight: 500; text-align: right; }
 
     .do-dont { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .rule-box { padding: 18px; border: 1px solid var(--line); background: var(--surface-2); border-radius: var(--r-2); }
@@ -322,8 +314,6 @@
       .principle:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
       .principle:nth-child(4) { border-top: 1px solid var(--line); }
       .target-list { overflow-x: auto; }
-      .target-columns, .target-summary { min-width: 980px; grid-template-columns: 300px 340px 340px; }
-      .target-detail { min-width: 980px; }
       .utility-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 760px) {
@@ -331,6 +321,9 @@
       .palette, .measure-grid, .state-matrix { grid-template-columns: repeat(2, 1fr); }
       .do-dont { grid-template-columns: 1fr; }
       .topbar-demo { align-items: flex-start; flex-direction: column; }
+    }
+    @media (max-width: 620px) {
+      .toolbar { align-items: stretch; flex-direction: column; }
       .signal-strip { grid-template-columns: repeat(2, 1fr); }
       .signal:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
       .signal:nth-child(4) { border-top: 1px solid var(--line); }
@@ -355,7 +348,7 @@
       </div>
       <aside class="hero-note">
         <strong>Confirmed interaction model</strong>
-        <p>Collapsed: Target · Runtime status · Runtime Start/Stop + Restart · Monitor status · Monitor Start/Stop + Restart. Expanded: Server/Tunnel state · reason for DEGRADED · startup policy · last check · technical details · edit/options.</p>
+        <p>Collapsed: Target · Runtime status · Runtime Start/Stop + Restart · Monitor status · Monitor Start/Stop + Restart · row menu. Expanded: Server/Tunnel state · reason for DEGRADED · startup policy · last check · target ID. Actions stay in the summary row.</p>
       </aside>
     </header>
 
@@ -420,18 +413,19 @@
         </div>
 
         <div class="target-list">
-          <div class="target-columns"><span>Target</span><span>Runtime</span><span>Monitor</span></div>
+          <div class="target-columns"><span>Target</span><span>Runtime</span><span>Monitor</span><span></span></div>
 
           <details class="target-item">
             <summary class="target-summary">
               <div class="target-identity"><span class="disclosure"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span><div class="tool-symbol"><svg viewBox="0 0 24 24"><path d="M4 12h16M8 7v10M16 7v10M4 8l4 4-4 4M20 8l-4 4 4 4"/></svg></div><div class="target-name"><strong>API Service</strong><small>api-service</small></div></div>
               <div class="runtime-cell"><span class="inline-state"><span class="lamp ready"></span>READY</span><span class="inline-controls"><button class="compact-btn stop" title="Stop Runtime" aria-label="Stop Runtime"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10"/></svg></button><button class="compact-btn" title="Restart Runtime" aria-label="Restart Runtime"><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
               <div class="monitor-cell"><span class="inline-state"><span class="lamp"></span>STOPPED</span><span class="inline-controls"><button class="compact-btn start" title="Start Monitor" aria-label="Start Monitor"><svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></svg></button><button class="compact-btn" title="Restart Monitor" aria-label="Restart Monitor" disabled><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
+              <span class="more-cell"><span class="more-trigger" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.35"/><circle cx="12" cy="12" r="1.35"/><circle cx="12" cy="19" r="1.35"/></svg></span></span>
             </summary>
             <div class="target-detail">
               <div class="target-detail-inner">
                 <div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>Runtime = Server + Tunnel</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">127.0.0.1:7676 · HTTP 200</span></div><div class="component-line"><span class="component-name">Tunnel</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">secure tunnel · /readyz 200</span></div></div>
-                <div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Last check</span><strong>04:47:12</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div>
+                <div class="detail-block"><div class="detail-title"><strong>Target details</strong></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Last check</span><strong>04:47:12</strong></div><div class="meta-line"><span>Target ID</span><strong>api-service</strong></div></div>
               </div>
             </div>
           </details>
@@ -441,11 +435,12 @@
               <div class="target-identity"><span class="disclosure"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span><div class="tool-symbol"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M10 5h4M10 18.5h4"/></svg></div><div class="target-name"><strong>Device Runtime</strong><small>device-runtime</small></div></div>
               <div class="runtime-cell"><span class="inline-state"><span class="lamp warn"></span>DEGRADED</span><span class="inline-controls"><button class="compact-btn stop" title="Stop Runtime" aria-label="Stop Runtime"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10"/></svg></button><button class="compact-btn" title="Restart Runtime" aria-label="Restart Runtime"><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
               <div class="monitor-cell"><span class="inline-state"><span class="lamp ready"></span>READY</span><span class="inline-controls"><button class="compact-btn stop" title="Stop Monitor" aria-label="Stop Monitor"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10"/></svg></button><button class="compact-btn" title="Restart Monitor" aria-label="Restart Monitor"><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
+              <span class="more-cell"><span class="more-trigger" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.35"/><circle cx="12" cy="12" r="1.35"/><circle cx="12" cy="19" r="1.35"/></svg></span></span>
             </summary>
             <div class="target-detail">
               <div class="target-detail-inner">
                 <div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>DEGRADED because Server is DOWN</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp danger"></span>DOWN</span><span class="component-detail">health check failed · connection refused</span></div><div class="component-line"><span class="component-name">Tunnel</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">/readyz · HTTP 200</span></div></div>
-                <div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Last check</span><strong>04:47:12</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div>
+                <div class="detail-block"><div class="detail-title"><strong>Target details</strong></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Last check</span><strong>04:47:12</strong></div><div class="meta-line"><span>Target ID</span><strong>device-runtime</strong></div></div>
               </div>
             </div>
           </details>
@@ -455,8 +450,9 @@
               <div class="target-identity"><span class="disclosure"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span><div class="tool-symbol"><svg viewBox="0 0 24 24"><path d="M5 7h14v10H5zM9 4v3M15 4v3M9 17v3M15 17v3"/></svg></div><div class="target-name"><strong>Search Pool</strong><small>search-pool</small></div></div>
               <div class="runtime-cell"><span class="inline-state"><span class="lamp ready"></span>READY</span><span class="inline-controls"><button class="compact-btn stop" title="Stop Runtime" aria-label="Stop Runtime"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10"/></svg></button><button class="compact-btn" title="Restart Runtime" aria-label="Restart Runtime"><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
               <div class="monitor-cell"><span class="inline-state muted">—</span><span></span></div>
+              <span class="more-cell"><span class="more-trigger" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.35"/><circle cx="12" cy="12" r="1.35"/><circle cx="12" cy="19" r="1.35"/></svg></span></span>
             </summary>
-            <div class="target-detail"><div class="target-detail-inner"><div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>No Tunnel configured</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">search pool ready</span></div></div><div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Monitor</span><strong>Not configured</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div></div></div>
+            <div class="target-detail"><div class="target-detail-inner"><div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>No Tunnel configured</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">search pool ready</span></div></div><div class="detail-block"><div class="detail-title"><strong>Target details</strong></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Monitor</span><strong>Not configured</strong></div><div class="meta-line"><span>Target ID</span><strong>search-pool</strong></div></div></div></div>
           </details>
         </div>
       </div>
@@ -466,7 +462,7 @@
       <div><h2 class="section-title">Utility controls</h2><p class="section-note">Small controls share the same alignment and surface rules as the target lifecycle buttons.</p></div>
       <div class="section-body utility-grid">
         <div class="utility-demo"><strong>Modal close</strong><p>Use a centered SVG X rather than a font glyph so the mark remains optically centered across Windows fonts and scaling.</p><button class="modal-close-demo" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6 18 18M18 6 6 18"/></svg></button></div>
-        <div class="utility-demo"><strong>Scrollbar</strong><p>10px Chromium scrollbar, thin Firefox scrollbar, neutral thumb with a brighter hover state.</p><div class="scroll-demo"><div class="scroll-demo-inner">Scrollable surface<br>Target list<br>JSON editor<br>Inspector<br>Dialog content<br><br>Thumb uses the shared scrollbar tokens.</div></div></div>
+        <div class="utility-demo"><strong>Scrollbar</strong><p>10px Chromium scrollbar, thin Firefox scrollbar, neutral thumb with a brighter hover state.</p><div class="scroll-demo"><div class="scroll-demo-inner">Scrollable surface<br>Target list<br>JSON editor<br>Dialog content<br><br>Thumb uses the shared scrollbar tokens.</div></div></div>
       </div>
     </section>
 
@@ -481,24 +477,10 @@
     </section>
 
     <section class="rail">
-      <div><h2 class="section-title">Technical inspector</h2><p class="section-note">Raw checks and endpoints are intentionally outside the collapsed row.</p></div>
-      <div class="section-body">
-        <div class="popover">
-          <div class="popover-title"><strong>API Service / technical</strong><code>api-service</code></div>
-          <div class="data-row"><span>Runtime</span><strong>READY</strong></div>
-          <div class="data-row"><span>Server</span><strong>READY · 127.0.0.1:7676</strong></div>
-          <div class="data-row"><span>Tunnel</span><strong>READY · HTTP 200</strong></div>
-          <div class="data-row"><span>Monitor</span><strong>STOPPED</strong></div>
-          <div class="data-row"><span>Startup</span><strong>manual</strong></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="rail">
       <div><h2 class="section-title">UI rules</h2><p class="section-note">These rules should carry directly into the production Swibo implementation.</p></div>
       <div class="section-body do-dont">
-        <div class="rule-box good"><h3>Use</h3><ul><li>One collapsed line per target as the default operating state.</li><li>Runtime as the visible aggregate; Server/Tunnel only in expanded diagnosis.</li><li>Runtime and Monitor each get state + Start/Stop + Restart in the same row.</li><li>Expand for startup policy, component detail, technical inspection, and edit options.</li><li>Hide absent Monitor/Tunnel controls instead of filling the row with N/A labels.</li><li>Keep icon controls keyboard accessible and expose descriptive tooltips / accessible names.</li></ul></div>
-        <div class="rule-box bad"><h3>Avoid</h3><ul><li>Overall / Server / Tunnel / Monitor as four equal status columns.</li><li>Showing Start and Stop simultaneously when only one is currently valid.</li><li>Hiding Monitor lifecycle inside an overflow menu.</li><li>Turning every target into a tall card.</li><li>Requiring expansion just to perform normal Start/Stop operations.</li><li>Showing a generic options button in the collapsed row when its functions can live in the expanded section.</li></ul></div>
+        <div class="rule-box good"><h3>Use</h3><ul><li>One collapsed line per target as the default operating state.</li><li>Runtime as the visible aggregate; Server/Tunnel only in expanded diagnosis.</li><li>Runtime and Monitor each get state + Start/Stop + Restart in the same row.</li><li>Keep the row menu fixed at the right edge in both collapsed and expanded states.</li><li>Expand for startup policy, component detail, last check, and target ID only.</li><li>Hide absent Monitor/Tunnel controls instead of filling the row with N/A labels.</li></ul></div>
+        <div class="rule-box bad"><h3>Avoid</h3><ul><li>Overall / Server / Tunnel / Monitor as four equal status columns.</li><li>Showing Start and Stop simultaneously when only one is currently valid.</li><li>Hiding Monitor lifecycle inside an overflow menu.</li><li>Turning every target into a tall card.</li><li>Requiring expansion just to perform normal Start/Stop operations.</li><li>Duplicating Edit or Technical Details buttons inside the expanded area.</li></ul></div>
       </div>
     </section>
 

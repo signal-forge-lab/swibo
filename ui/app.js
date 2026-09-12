@@ -7,7 +7,6 @@ const editor = document.querySelector("#target-json");
 const editorError = document.querySelector("#editor-error");
 const deleteButton = document.querySelector("#delete-target");
 const toast = document.querySelector("#toast");
-const inspectionPopover = document.querySelector("#inspection-popover");
 
 let snapshot = { targets: [], registry: { targets: [] } };
 let editingId = null;
@@ -15,6 +14,7 @@ let refreshing = false;
 let actionBusy = false;
 let renderFingerprint = "";
 let lastCheckedLabel = "—";
+let openMenuTarget = null;
 let toastTimer;
 const expandedTargets = new Set();
 
@@ -23,7 +23,8 @@ const icons = {
   stop: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1"/></svg>`,
   restart: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8V4l-2 2a8 8 0 1 0 2.2 8M19 4h-4"/></svg>`,
   disclosure: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>`,
-  tool: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14v10H5zM9 4v3M15 4v3M9 17v3M15 17v3"/></svg>`
+  tool: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14v10H5zM9 4v3M15 4v3M9 17v3M15 17v3"/></svg>`,
+  more: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.35"/><circle cx="12" cy="12" r="1.35"/><circle cx="12" cy="19" r="1.35"/></svg>`
 };
 
 const template = {
@@ -117,6 +118,17 @@ function componentControl(target, key) {
   </span>`;
 }
 
+function rowMenu(target) {
+  const open = openMenuTarget === target.id;
+  return `<div class="more-cell">
+    <button class="more-trigger" type="button" data-more-menu aria-label="More actions for ${escapeHtml(target.name)}" aria-haspopup="menu" aria-expanded="${open}">${icons.more}</button>
+    ${open ? `<div class="row-menu" role="menu">
+      <button type="button" role="menuitem" data-menu-action="edit">Edit target</button>
+      <button class="danger" type="button" role="menuitem" data-menu-action="remove">Remove target</button>
+    </div>` : ""}
+  </div>`;
+}
+
 function checkState(check) {
   if (!check || check.notApplicable) return "N/A";
   return check.ready ? "READY" : "DOWN";
@@ -159,14 +171,10 @@ function targetDetail(target) {
         ${target.error ? `<p class="runtime-error">${escapeHtml(target.error)}</p>` : ""}
       </div>
       <div class="detail-block">
-        <div class="detail-title"><strong>Options</strong><span>expanded only</span></div>
+        <div class="detail-title"><strong>Target details</strong></div>
         <div class="meta-line"><span>Startup</span><strong>${escapeHtml(target.startupPolicy || "manual")}</strong></div>
         <div class="meta-line"><span>Last check</span><strong class="mono">${escapeHtml(lastCheckedLabel)}</strong></div>
         <div class="meta-line"><span>Target ID</span><strong class="mono">${escapeHtml(target.id)}</strong></div>
-        <div class="detail-actions">
-          <button class="button quiet small" type="button" data-inspect="info">Technical details</button>
-          <button class="button small" type="button" data-action="edit">Edit target</button>
-        </div>
       </div>
     </div>
   </div>`;
@@ -183,6 +191,7 @@ function targetRow(target) {
       </div>
       <div class="runtime-cell">${runtimeControl(target)}</div>
       <div class="monitor-cell">${componentControl(target, "monitor")}</div>
+      ${rowMenu(target)}
     </div>
     ${expanded ? targetDetail(target) : ""}
   </article>`;
@@ -191,7 +200,8 @@ function targetRow(target) {
 function render() {
   const validIds = new Set(snapshot.targets.map((target) => target.id));
   for (const id of expandedTargets) if (!validIds.has(id)) expandedTargets.delete(id);
-  const fingerprint = JSON.stringify([snapshot.targets, [...expandedTargets].sort(), actionBusy, lastCheckedLabel]);
+  if (openMenuTarget && !validIds.has(openMenuTarget)) openMenuTarget = null;
+  const fingerprint = JSON.stringify([snapshot.targets, [...expandedTargets].sort(), openMenuTarget, actionBusy, lastCheckedLabel]);
   if (fingerprint === renderFingerprint) return;
   renderFingerprint = fingerprint;
 
@@ -202,38 +212,6 @@ function render() {
   document.querySelector("#count-total").textContent = targets.length;
   document.querySelector("#target-count").textContent = `${targets.length} target${targets.length === 1 ? "" : "s"}`;
   rows.innerHTML = targets.length ? targets.map(targetRow).join("") : `<div class="empty-row">No targets. Add one from “Add target”.</div>`;
-}
-
-function inspectorRow(label, value, { mono = false, danger = false } = {}) {
-  return `<div class="inspect-row"><span>${escapeHtml(label)}</span><strong class="${mono ? "mono " : ""}${danger ? "danger-text" : ""}">${escapeHtml(value)}</strong></div>`;
-}
-
-function inspectorHtml(target) {
-  const monitor = target.components?.monitor;
-  const monitorState = monitor ? String(monitor.state || (monitor.ready ? "READY" : "STOPPED")) : "Not configured";
-  return `<div class="inspect-title">${escapeHtml(target.name)} / technical</div>
-    ${inspectorRow("Runtime", target.state)}
-    ${inspectorRow("Server", `${checkState(target.server)} · ${checkDetail(target.server) || "Not configured"}`, { mono: true })}
-    ${inspectorRow("Tunnel", `${checkState(target.tunnel)} · ${checkDetail(target.tunnel) || "Not configured"}`, { mono: true })}
-    ${inspectorRow("Monitor", monitorState, { mono: true })}
-    ${inspectorRow("Startup", target.startupPolicy || "manual")}
-    ${target.error ? inspectorRow("Error", target.error, { danger: true }) : ""}`;
-}
-
-function showInspector(trigger, target) {
-  inspectionPopover.innerHTML = inspectorHtml(target);
-  inspectionPopover.hidden = false;
-  const anchor = trigger.getBoundingClientRect();
-  requestAnimationFrame(() => {
-    const box = inspectionPopover.getBoundingClientRect();
-    const margin = 12;
-    inspectionPopover.style.left = `${Math.max(margin, Math.min(anchor.left, window.innerWidth - box.width - margin))}px`;
-    inspectionPopover.style.top = `${Math.max(margin, Math.min(anchor.bottom + 8, window.innerHeight - box.height - margin))}px`;
-  });
-}
-
-function hideInspector() {
-  inspectionPopover.hidden = true;
 }
 
 async function refresh({ silent = false } = {}) {
@@ -300,11 +278,38 @@ rows.addEventListener("click", async (event) => {
     return;
   }
 
-  const inspect = event.target.closest("[data-inspect]");
-  if (inspect) {
+  if (event.target.closest("[data-more-menu]")) {
     event.stopPropagation();
-    showInspector(inspect, target);
+    openMenuTarget = openMenuTarget === id ? null : id;
+    renderFingerprint = "";
+    render();
     return;
+  }
+
+  const menuButton = event.target.closest("button[data-menu-action]");
+  if (menuButton) {
+    event.stopPropagation();
+    const action = menuButton.dataset.menuAction;
+    openMenuTarget = null;
+    renderFingerprint = "";
+    if (action === "edit") {
+      render();
+      const registryTarget = snapshot.registry.targets.find((candidate) => candidate.id === id);
+      if (registryTarget) openEditor(registryTarget);
+      return;
+    }
+    if (action === "remove") {
+      render();
+      if (!confirm(`Remove ${id} from the registry? Running processes are not killed by removal.`)) return;
+      try {
+        await api(`/api/targets/${encodeURIComponent(id)}`, { method: "DELETE" });
+        showToast("Target removed");
+        await refresh();
+      } catch (error) {
+        showToast(error.message, true);
+      }
+      return;
+    }
   }
 
   const componentButton = event.target.closest("button[data-component-action]");
@@ -327,11 +332,19 @@ rows.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("click", (event) => {
-  if (!inspectionPopover.hidden && !inspectionPopover.contains(event.target) && !event.target.closest("[data-inspect]")) hideInspector();
+  if (openMenuTarget && !event.target.closest(".more-cell")) {
+    openMenuTarget = null;
+    renderFingerprint = "";
+    render();
+  }
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !inspectionPopover.hidden) hideInspector();
+  if (event.key === "Escape" && openMenuTarget) {
+    openMenuTarget = null;
+    renderFingerprint = "";
+    render();
+  }
 });
 
 document.querySelector("#save-target").addEventListener("click", async () => {

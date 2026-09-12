@@ -6,7 +6,7 @@ const html = fs.readFileSync(new URL("../ui/index.html", import.meta.url), "utf8
 const js = fs.readFileSync(new URL("../ui/app.js", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../ui/styles.css", import.meta.url), "utf8");
 
-test("dashboard uses compact Target / Runtime / Monitor columns", () => {
+test("dashboard uses compact Target / Runtime / Monitor / row-menu columns", () => {
   for (const label of ["Target", "Runtime", "Monitor"]) {
     assert.match(html, new RegExp(`>${label}<`));
   }
@@ -23,9 +23,18 @@ test("target rows keep primary lifecycle controls visible and details expandable
   assert.match(js, /data-expand-target/);
   assert.match(js, /Runtime composition/);
   assert.match(js, /Last check/);
-  assert.match(js, /Technical details/);
-  assert.doesNotMatch(js, /moreMenu/);
-  assert.doesNotMatch(js, /Start Monitor[\s\S]*more-menu/);
+  assert.match(js, /rowMenu/);
+  assert.match(js, /data-more-menu/);
+  assert.match(js, /data-menu-action="edit"/);
+  assert.doesNotMatch(js, /Technical details/);
+  assert.doesNotMatch(js, /data-inspect/);
+});
+
+test("expanded details are informational and keep actions in the summary row", () => {
+  assert.doesNotMatch(js, /detail-actions/);
+  assert.doesNotMatch(js, /targetDetail[\s\S]*data-action="edit"/);
+  assert.doesNotMatch(html, /inspection-popover/);
+  assert.match(js, /<div class="more-cell">/);
 });
 
 test("expanded details expose Server and Tunnel without restoring permanent columns", () => {
@@ -38,6 +47,19 @@ test("expanded details expose Server and Tunnel without restoring permanent colu
 test("dashboard keeps its operational region scrollable", () => {
   assert.match(css, /html, body \{[^}]*height:\s*100%/s);
   assert.match(css, /\.target-list-wrap \{[^}]*overflow:\s*auto/s);
+});
+
+test("target rows do not force a 900px layout and reserve a fixed menu column", () => {
+  assert.doesNotMatch(css, /\.target-columns, \.target-summary \{[^}]*min-width:\s*900px/s);
+  assert.match(css, /\.target-columns, \.target-summary \{[^}]*grid-template-columns:[^}]*42px/s);
+  assert.match(css, /\.target-columns, \.target-summary \{[^}]*min-width:\s*560px/s);
+});
+
+test("desktop-width toolbar and summary stay on one row until a narrow breakpoint", () => {
+  assert.match(css, /@media \(max-width:\s*900px\) \{\s*\.shell[^}]*\}\s*\.content[^}]*\}\s*\}/s);
+  assert.match(css, /@media \(max-width:\s*620px\)[\s\S]*?\.summary \{\s*grid-template-columns:\s*repeat\(2/s);
+  assert.match(css, /\.signal \{[^}]*align-items:\s*center/s);
+  assert.match(css, /\.toolbar-group \{[^}]*flex-wrap:\s*nowrap[^}]*white-space:\s*nowrap/s);
 });
 
 test("expanded rows span the full target width without clipping the left separator", () => {

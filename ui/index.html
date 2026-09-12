@@ -47,13 +47,13 @@
         <div class="panel-head">
           <div>
             <h2 id="targets-title">Targets</h2>
-            <p>Runtime stays compact; expand a target for Server, Tunnel, and technical details.</p>
+            <p>Runtime stays compact; expand a target for Server, Tunnel, and target details.</p>
           </div>
           <span class="target-count" id="target-count">0 targets</span>
         </div>
         <div class="target-list-wrap" id="target-list-wrap">
           <div class="target-columns" aria-hidden="true">
-            <span>Target</span><span>Runtime</span><span>Monitor</span>
+            <span>Target</span><span>Runtime</span><span>Monitor</span><span></span>
           </div>
           <div class="target-rows" id="target-rows">
             <div class="empty-row">Loading targets…</div>
@@ -62,8 +62,6 @@
       </section>
     </main>
   </div>
-
-  <div class="inspection-popover" id="inspection-popover" role="dialog" aria-label="Technical details" hidden></div>
 
   <dialog id="target-dialog" aria-labelledby="dialog-title">
     <form method="dialog" class="dialog-card" id="target-form">
