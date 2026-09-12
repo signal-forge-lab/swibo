@@ -1,0 +1,9 @@
+src-tauri/target/
+src-tauri/icons/
+src-tauri/gen/
+node_modules/
+*.log
+.env
+.env.*
+*.pem
+*.key

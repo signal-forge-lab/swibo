@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Swibo",
+  "version": "0.1.0",
+  "identifier": "io.github.signal-forge-lab.swibo",
+  "build": {
+    "frontendDist": "../ui-shell"
+  },
+  "app": {
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": false,
+    "icon": []
+  }
+}

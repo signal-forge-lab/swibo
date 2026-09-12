@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "targets": [
+    {
+      "id": "example-service",
+      "name": "Example Service",
+      "enabled": false,
+      "startupPolicy": "manual",
+      "lifecycle": {
+        "start": [
+          {
+            "command": "node",
+            "args": ["scripts/service.js", "start"],
+            "cwd": "${HOME}/path/to/example-service",
+            "waitFor": "server"
+          }
+        ],
+        "stop": [
+          {
+            "command": "node",
+            "args": ["scripts/service.js", "stop"],
+            "cwd": "${HOME}/path/to/example-service"
+          }
+        ]
+      },
+      "checks": {
+        "server": { "type": "tcp", "host": "127.0.0.1", "port": 8000 },
+        "tunnel": { "type": "none" }
+      },
+      "components": {
+        "monitor": {
+          "label": "Monitor",
+          "lifecycle": {
+            "start": [
+              {
+                "command": "node",
+                "args": ["scripts/monitor.js", "start"],
+                "cwd": "${HOME}/path/to/example-service"
+              }
+            ],
+            "stop": [
+              {
+                "command": "node",
+                "args": ["scripts/monitor.js", "stop"],
+                "cwd": "${HOME}/path/to/example-service"
+              }
+            ]
+          },
+          "check": {
+            "type": "pidFile",
+            "path": "${LOCALAPPDATA}/swibo-example/monitor.pid"
+          }
+        }
+      }
+    }
+  ]
+}

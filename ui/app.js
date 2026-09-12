@@ -1,0 +1,371 @@
+const rows = document.querySelector("#target-rows");
+const connection = document.querySelector("#connection");
+const connectionLabel = document.querySelector("#connection-label");
+const updated = document.querySelector("#updated");
+const dialog = document.querySelector("#target-dialog");
+const editor = document.querySelector("#target-json");
+const editorError = document.querySelector("#editor-error");
+const deleteButton = document.querySelector("#delete-target");
+const toast = document.querySelector("#toast");
+const inspectionPopover = document.querySelector("#inspection-popover");
+
+let snapshot = { targets: [], registry: { targets: [] } };
+let editingId = null;
+let refreshing = false;
+let actionBusy = false;
+let renderFingerprint = "";
+let lastCheckedLabel = "—";
+let toastTimer;
+const expandedTargets = new Set();
+
+const icons = {
+  start: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg>`,
+  stop: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1"/></svg>`,
+  restart: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8V4l-2 2a8 8 0 1 0 2.2 8M19 4h-4"/></svg>`,
+  disclosure: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>`,
+  tool: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14v10H5zM9 4v3M15 4v3M9 17v3M15 17v3"/></svg>`
+};
+
+const template = {
+  id: "new-service",
+  name: "New Service",
+  enabled: false,
+  startupPolicy: "manual",
+  lifecycle: {
+    start: [{ command: "node", args: ["scripts/service.js", "start"], cwd: "${HOME}/path/to/service", waitFor: "server" }],
+    stop: [{ command: "node", args: ["scripts/service.js", "stop"], cwd: "${HOME}/path/to/service" }]
+  },
+  checks: {
+    server: { type: "tcp", host: "127.0.0.1", port: 8000 },
+    tunnel: { type: "none" }
+  }
+};
+
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: options.body ? { "content-type": "application/json", ...options.headers } : options.headers
+  });
+  const value = await response.json();
+  if (!response.ok) throw new Error(value.error || `HTTP ${response.status}`);
+  return value;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function showToast(message, isError = false) {
+  clearTimeout(toastTimer);
+  toast.textContent = message;
+  toast.className = `toast visible${isError ? " error" : ""}`;
+  toastTimer = setTimeout(() => { toast.className = "toast"; }, 3200);
+}
+
+function stateClass(state) {
+  const value = String(state || "STOPPED").toLowerCase();
+  if (["degraded", "starting", "stopping"].includes(value)) return "warn";
+  if (["error", "down"].includes(value)) return "danger";
+  if (value === "ready") return "ready";
+  return "stopped";
+}
+
+function stateReadout(state, { muted = false } = {}) {
+  if (muted) return `<span class="state-readout muted">—</span>`;
+  const label = String(state || "STOPPED");
+  return `<span class="state-readout ${stateClass(label)}"><span class="lamp" aria-hidden="true"></span>${escapeHtml(label)}</span>`;
+}
+
+function actionButton(action, label, { disabled = false, component = "" } = {}) {
+  const componentAttrs = component
+    ? ` data-component="${escapeHtml(component)}" data-component-action="${action}"`
+    : ` data-action="${action}"`;
+  return `<button class="compact-btn ${action === "start" ? "start" : action === "stop" ? "stop" : ""}" type="button"${componentAttrs} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"${disabled ? " disabled" : ""}>${icons[action]}</button>`;
+}
+
+function runtimeControl(target) {
+  const state = String(target.state || "STOPPED");
+  const busy = actionBusy || ["STARTING", "STOPPING"].includes(state);
+  const stopped = state === "STOPPED";
+  const primaryAction = stopped ? "start" : "stop";
+  const primaryDisabled = busy || (primaryAction === "start" && !target.enabled);
+  const restartDisabled = busy || stopped || !target.enabled;
+  return `${stateReadout(state)}<span class="inline-controls">
+    ${actionButton(primaryAction, `${primaryAction === "start" ? "Start" : "Stop"} Runtime`, { disabled: primaryDisabled })}
+    ${actionButton("restart", "Restart Runtime", { disabled: restartDisabled })}
+  </span>`;
+}
+
+function componentControl(target, key) {
+  const component = target.components?.[key];
+  if (!component || component.notApplicable) return `${stateReadout("N/A", { muted: true })}<span></span>`;
+  const state = String(component.state || (component.ready ? "READY" : "STOPPED"));
+  const busy = actionBusy || ["STARTING", "STOPPING"].includes(state);
+  const stopped = state === "STOPPED" || state === "N/A";
+  const primaryAction = stopped ? "start" : "stop";
+  const primaryDisabled = busy || (primaryAction === "start" && !target.enabled);
+  const restartDisabled = busy || stopped || !target.enabled;
+  const label = component.label || key;
+  return `${stateReadout(state)}<span class="inline-controls">
+    ${actionButton(primaryAction, `${primaryAction === "start" ? "Start" : "Stop"} ${label}`, { disabled: primaryDisabled, component: key })}
+    ${actionButton("restart", `Restart ${label}`, { disabled: restartDisabled, component: key })}
+  </span>`;
+}
+
+function checkState(check) {
+  if (!check || check.notApplicable) return "N/A";
+  return check.ready ? "READY" : "DOWN";
+}
+
+function checkDetail(check) {
+  if (!check || check.notApplicable) return "";
+  const detail = String(check.detail || "").trim();
+  return detail && detail !== "not configured" ? detail : "No additional detail";
+}
+
+function componentDetailRow(target, key, label) {
+  const check = target[key];
+  if (!check || check.notApplicable) return "";
+  const state = checkState(check);
+  return `<div class="component-line">
+    <span class="component-name">${escapeHtml(label)}</span>
+    ${stateReadout(state)}
+    <span class="component-detail">${escapeHtml(checkDetail(check))}</span>
+  </div>`;
+}
+
+function runtimeReason(target) {
+  if (target.state !== "DEGRADED") return "Runtime = configured Server + Tunnel checks";
+  const down = [];
+  if (!target.server?.notApplicable && !target.server?.ready) down.push("Server");
+  if (!target.tunnel?.notApplicable && !target.tunnel?.ready) down.push("Tunnel");
+  return down.length ? `DEGRADED because ${down.join(" + ")} is DOWN` : "Runtime is DEGRADED";
+}
+
+function targetDetail(target) {
+  const server = componentDetailRow(target, "server", "Server");
+  const tunnel = componentDetailRow(target, "tunnel", "Tunnel");
+  return `<div class="target-detail">
+    <div class="detail-block">
+      <div class="detail-title"><strong>Runtime composition</strong><span>${escapeHtml(runtimeReason(target))}</span></div>
+      ${server || `<div class="component-line"><span class="component-name">Server</span>${stateReadout("N/A", { muted: true })}<span class="component-detail"></span></div>`}
+      ${tunnel}
+      ${target.error ? `<p class="runtime-error">${escapeHtml(target.error)}</p>` : ""}
+    </div>
+    <div class="detail-block">
+      <div class="detail-title"><strong>Options</strong><span>expanded only</span></div>
+      <div class="meta-line"><span>Startup</span><strong>${escapeHtml(target.startupPolicy || "manual")}</strong></div>
+      <div class="meta-line"><span>Last check</span><strong class="mono">${escapeHtml(lastCheckedLabel)}</strong></div>
+      <div class="meta-line"><span>Target ID</span><strong class="mono">${escapeHtml(target.id)}</strong></div>
+      <div class="detail-actions">
+        <button class="button quiet small" type="button" data-inspect="info">Technical details</button>
+        <button class="button small" type="button" data-action="edit">Edit target</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function targetRow(target) {
+  const expanded = expandedTargets.has(target.id);
+  return `<article class="target-item${expanded ? " expanded" : ""}" data-id="${escapeHtml(target.id)}">
+    <div class="target-summary">
+      <div class="target-identity">
+        <button class="expand-target" type="button" data-expand-target aria-label="${expanded ? "Collapse" : "Expand"} ${escapeHtml(target.name)}" aria-expanded="${expanded}">${icons.disclosure}</button>
+        <span class="tool-icon" aria-hidden="true">${icons.tool}</span>
+        <span class="target-name"><strong>${escapeHtml(target.name)}</strong><small>${escapeHtml(target.id)}${target.enabled ? "" : " · disabled"}</small></span>
+      </div>
+      <div class="runtime-cell">${runtimeControl(target)}</div>
+      <div class="monitor-cell">${componentControl(target, "monitor")}</div>
+    </div>
+    ${expanded ? targetDetail(target) : ""}
+  </article>`;
+}
+
+function render() {
+  const validIds = new Set(snapshot.targets.map((target) => target.id));
+  for (const id of expandedTargets) if (!validIds.has(id)) expandedTargets.delete(id);
+  const fingerprint = JSON.stringify([snapshot.targets, [...expandedTargets].sort(), actionBusy, lastCheckedLabel]);
+  if (fingerprint === renderFingerprint) return;
+  renderFingerprint = fingerprint;
+
+  const targets = snapshot.targets;
+  document.querySelector("#count-ready").textContent = targets.filter((target) => target.state === "READY").length;
+  document.querySelector("#count-degraded").textContent = targets.filter((target) => target.state === "DEGRADED").length;
+  document.querySelector("#count-stopped").textContent = targets.filter((target) => target.state === "STOPPED").length;
+  document.querySelector("#count-total").textContent = targets.length;
+  document.querySelector("#target-count").textContent = `${targets.length} target${targets.length === 1 ? "" : "s"}`;
+  rows.innerHTML = targets.length ? targets.map(targetRow).join("") : `<div class="empty-row">No targets. Add one from “Add target”.</div>`;
+}
+
+function inspectorRow(label, value, { mono = false, danger = false } = {}) {
+  return `<div class="inspect-row"><span>${escapeHtml(label)}</span><strong class="${mono ? "mono " : ""}${danger ? "danger-text" : ""}">${escapeHtml(value)}</strong></div>`;
+}
+
+function inspectorHtml(target) {
+  const monitor = target.components?.monitor;
+  const monitorState = monitor ? String(monitor.state || (monitor.ready ? "READY" : "STOPPED")) : "Not configured";
+  return `<div class="inspect-title">${escapeHtml(target.name)} / technical</div>
+    ${inspectorRow("Runtime", target.state)}
+    ${inspectorRow("Server", `${checkState(target.server)} · ${checkDetail(target.server) || "Not configured"}`, { mono: true })}
+    ${inspectorRow("Tunnel", `${checkState(target.tunnel)} · ${checkDetail(target.tunnel) || "Not configured"}`, { mono: true })}
+    ${inspectorRow("Monitor", monitorState, { mono: true })}
+    ${inspectorRow("Startup", target.startupPolicy || "manual")}
+    ${target.error ? inspectorRow("Error", target.error, { danger: true }) : ""}`;
+}
+
+function showInspector(trigger, target) {
+  inspectionPopover.innerHTML = inspectorHtml(target);
+  inspectionPopover.hidden = false;
+  const anchor = trigger.getBoundingClientRect();
+  requestAnimationFrame(() => {
+    const box = inspectionPopover.getBoundingClientRect();
+    const margin = 12;
+    inspectionPopover.style.left = `${Math.max(margin, Math.min(anchor.left, window.innerWidth - box.width - margin))}px`;
+    inspectionPopover.style.top = `${Math.max(margin, Math.min(anchor.bottom + 8, window.innerHeight - box.height - margin))}px`;
+  });
+}
+
+function hideInspector() {
+  inspectionPopover.hidden = true;
+}
+
+async function refresh({ silent = false } = {}) {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    snapshot = await api("/api/status");
+    lastCheckedLabel = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    connection.dataset.state = "ready";
+    connectionLabel.textContent = "Daemon connected";
+    updated.textContent = `Updated ${lastCheckedLabel}`;
+    render();
+  } catch (error) {
+    connection.dataset.state = "error";
+    connectionLabel.textContent = "Daemon unavailable";
+    if (!silent) showToast(error.message, true);
+  } finally {
+    refreshing = false;
+  }
+}
+
+async function runAction(path, label) {
+  if (actionBusy) return;
+  actionBusy = true;
+  render();
+  try {
+    await api(path, { method: "POST" });
+    showToast(label);
+  } catch (error) {
+    showToast(error.message, true);
+  } finally {
+    actionBusy = false;
+    renderFingerprint = "";
+    await refresh({ silent: true });
+  }
+}
+
+function openEditor(target = null) {
+  editingId = target?.id || null;
+  document.querySelector("#dialog-title").textContent = target ? `Edit ${target.name}` : "Add target";
+  editor.value = JSON.stringify(target || template, null, 2);
+  editorError.textContent = "";
+  deleteButton.classList.toggle("hidden", !target);
+  dialog.showModal();
+  requestAnimationFrame(() => editor.focus());
+}
+
+document.querySelector("#refresh").addEventListener("click", () => refresh());
+document.querySelector("#start-all").addEventListener("click", () => runAction("/api/start-all", "Start all runtimes completed"));
+document.querySelector("#stop-all").addEventListener("click", () => runAction("/api/stop-all", "Stop all runtimes completed"));
+document.querySelector("#add-target").addEventListener("click", () => openEditor());
+
+rows.addEventListener("click", async (event) => {
+  const item = event.target.closest(".target-item[data-id]");
+  const id = item?.dataset.id;
+  if (!id) return;
+  const target = snapshot.targets.find((candidate) => candidate.id === id);
+  if (!target) return;
+
+  if (event.target.closest("[data-expand-target]")) {
+    expandedTargets.has(id) ? expandedTargets.delete(id) : expandedTargets.add(id);
+    renderFingerprint = "";
+    render();
+    return;
+  }
+
+  const inspect = event.target.closest("[data-inspect]");
+  if (inspect) {
+    event.stopPropagation();
+    showInspector(inspect, target);
+    return;
+  }
+
+  const componentButton = event.target.closest("button[data-component-action]");
+  if (componentButton) {
+    const component = componentButton.dataset.component;
+    const action = componentButton.dataset.componentAction;
+    await runAction(`/api/targets/${encodeURIComponent(id)}/components/${encodeURIComponent(component)}/${action}`, `${action} ${target.name} ${component} completed`);
+    return;
+  }
+
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const action = button.dataset.action;
+  if (action === "edit") {
+    const registryTarget = snapshot.registry.targets.find((candidate) => candidate.id === id);
+    if (registryTarget) openEditor(registryTarget);
+    return;
+  }
+  await runAction(`/api/targets/${encodeURIComponent(id)}/${action}`, `${action} ${target.name} completed`);
+});
+
+document.addEventListener("click", (event) => {
+  if (!inspectionPopover.hidden && !inspectionPopover.contains(event.target) && !event.target.closest("[data-inspect]")) hideInspector();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !inspectionPopover.hidden) hideInspector();
+});
+
+document.querySelector("#save-target").addEventListener("click", async () => {
+  editorError.textContent = "";
+  let target;
+  try { target = JSON.parse(editor.value); } catch (error) {
+    editorError.textContent = `Invalid JSON: ${error.message}`;
+    return;
+  }
+  try {
+    const path = editingId ? `/api/targets/${encodeURIComponent(editingId)}` : "/api/targets";
+    await api(path, { method: editingId ? "PUT" : "POST", body: JSON.stringify(target) });
+    dialog.close();
+    showToast(editingId ? "Target updated" : "Target added");
+    await refresh();
+  } catch (error) {
+    editorError.textContent = error.message;
+  }
+});
+
+deleteButton.addEventListener("click", async () => {
+  if (!editingId) return;
+  if (!confirm(`Remove ${editingId} from the registry? Running processes are not killed by removal.`)) return;
+  try {
+    await api(`/api/targets/${encodeURIComponent(editingId)}`, { method: "DELETE" });
+    dialog.close();
+    showToast("Target removed");
+    await refresh();
+  } catch (error) {
+    editorError.textContent = error.message;
+  }
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refresh({ silent: true });
+});
+
+refresh();
+setInterval(() => { if (!document.hidden) refresh({ silent: true }); }, 3000);

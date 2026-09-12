@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>MCP Supervisor — Light UI Design Sheet</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #f1f3f0;
+      --canvas-2: #e9ede9;
+      --surface: #fbfcfa;
+      --surface-strong: #ffffff;
+      --surface-soft: #f6f8f5;
+      --ink: #18201d;
+      --ink-2: #4f5b55;
+      --ink-3: #65716b;
+      --line: #dbe1dc;
+      --line-strong: #c9d1cb;
+      --accent: #285c4f;
+      --accent-hover: #214d42;
+      --accent-soft: #e5efeb;
+      --accent-line: #bfd5cb;
+      --ready: #2f6d50;
+      --ready-soft: #e8f3ec;
+      --ready-line: #c2dbc9;
+      --warn: #875a17;
+      --warn-soft: #f8f0e1;
+      --warn-line: #e6d3ac;
+      --danger: #a44747;
+      --danger-soft: #f8eaea;
+      --danger-line: #e3bebe;
+      --stopped: #5e6863;
+      --stopped-soft: #edf0ee;
+      --shadow: 0 18px 45px rgba(31, 42, 36, 0.08);
+      --shadow-soft: 0 3px 12px rgba(31, 42, 36, 0.05);
+      --r-sm: 8px;
+      --r-md: 12px;
+      --r-lg: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: var(--canvas); }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, #f5f6f3 0, var(--canvas) 360px),
+        var(--canvas);
+      font-family: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button { font: inherit; }
+
+    .sheet {
+      width: min(1480px, calc(100% - 40px));
+      margin: 28px auto 64px;
+    }
+
+    .sheet-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 28px;
+      margin: 0 4px 16px;
+    }
+
+    .sheet-head h1 {
+      margin: 0;
+      font-size: clamp(23px, 2vw, 30px);
+      line-height: 1.1;
+      letter-spacing: -0.025em;
+      font-weight: 690;
+    }
+
+    .sheet-head p {
+      max-width: 760px;
+      margin: 8px 0 0;
+      color: var(--ink-2);
+    }
+
+    .sheet-label {
+      color: var(--ink-3);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.035em;
+      white-space: nowrap;
+    }
+
+    .app-window {
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow);
+    }
+
+    .app-topbar {
+      display: flex;
+      min-height: 76px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 15px 21px;
+      background: rgba(255, 255, 255, 0.78);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 auto;
+      place-items: center;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-line);
+      border-radius: 10px;
+    }
+
+    .brand-mark svg,
+    .button svg,
+    .mini-tool svg {
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .brand-mark svg { width: 21px; height: 21px; stroke-width: 1.75; }
+
+    .brand-title {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: -0.018em;
+    }
+
+    .brand-subtitle {
+      margin: 3px 0 0;
+      color: var(--ink-2);
+      font-size: 12.5px;
+    }
+
+    .connection {
+      display: inline-flex;
+      min-height: 34px;
+      align-items: center;
+      gap: 8px;
+      padding: 0 11px;
+      color: #315443;
+      background: #eef5f0;
+      border: 1px solid #cfe0d5;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .connection-dot {
+      width: 7px;
+      height: 7px;
+      background: #3f8a63;
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px rgba(63, 138, 99, 0.12);
+    }
+
+    .content { padding: 18px 20px 21px; }
+
+    .commandbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding-bottom: 17px;
+    }
+
+    .command-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 36px;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 0 13px;
+      color: var(--ink);
+      background: var(--surface-strong);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-sm);
+      box-shadow: 0 1px 1px rgba(31, 42, 36, 0.03);
+      font-weight: 650;
+    }
+
+    .button.primary {
+      color: white;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .button.danger {
+      color: var(--danger);
+      background: var(--danger-soft);
+      border-color: var(--danger-line);
+    }
+
+    .button.ghost {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+    }
+
+    .button svg { width: 16px; height: 16px; stroke-width: 1.8; }
+
+    .updated {
+      margin-right: 3px;
+      color: var(--ink-3);
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-bottom: 17px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+    }
+
+    .metric { min-width: 0; padding: 14px 16px 13px; }
+    .metric + .metric { border-left: 1px solid var(--line); }
+
+    .metric-label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--ink-2);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .metric-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .metric-value {
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: -0.035em;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-note { color: var(--ink-3); font-size: 11.5px; white-space: nowrap; }
+
+    .workspace {
+      background: var(--surface-strong);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-md);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .workspace-head {
+      display: flex;
+      min-height: 61px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 11px 15px 10px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .workspace-head h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .workspace-head p { margin: 3px 0 0; color: var(--ink-2); font-size: 12.5px; }
+
+    .mini-tool {
+      display: inline-flex;
+      min-height: 30px;
+      align-items: center;
+      gap: 7px;
+      padding: 0 9px;
+      color: var(--ink-2);
+      background: var(--surface-soft);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .mini-tool svg { width: 14px; height: 14px; stroke-width: 1.8; }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      min-width: 1010px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th, td { text-align: left; vertical-align: middle; }
+
+    th {
+      height: 37px;
+      padding: 0 13px;
+      color: #68736d;
+      background: #f7f8f6;
+      border-bottom: 1px solid var(--line);
+      font-size: 11.5px;
+      font-weight: 680;
+    }
+
+    td {
+      height: 64px;
+      padding: 9px 13px;
+      border-bottom: 1px solid #e7ebe8;
+    }
+
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:nth-child(even) { background: #fdfefd; }
+
+    .col-target { width: 28%; }
+    .col-state { width: 11%; }
+    .col-check { width: 14%; }
+    .col-startup { width: 9%; }
+    .col-actions { width: 24%; }
+
+    .target {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
+    }
+
+    .target-icon {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      place-items: center;
+      color: #3c4b44;
+      background: #edf0ed;
+      border: 1px solid #d7ddd8;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 760;
+      letter-spacing: -0.02em;
+    }
+
+    .target-name {
+      display: block;
+      overflow: hidden;
+      font-weight: 680;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .target-id, .check-detail {
+      display: block;
+      overflow: hidden;
+      margin-top: 2px;
+      color: var(--ink-3);
+      font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .status {
+      display: inline-flex;
+      min-height: 26px;
+      align-items: center;
+      gap: 6px;
+      padding: 0 9px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 740;
+      white-space: nowrap;
+    }
+
+    .status::before {
+      width: 6px;
+      height: 6px;
+      content: "";
+      background: currentColor;
+      border-radius: 50%;
+    }
+
+    .status.ready { color: var(--ready); background: var(--ready-soft); border-color: var(--ready-line); }
+    .status.stopped { color: var(--stopped); background: var(--stopped-soft); border-color: #d9dfdb; }
+    .status.degraded { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
+
+    .health {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .health-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .health.good .health-dot { background: #3d8462; }
+    .health.down .health-dot { background: #9ba39f; }
+    .health.warn .health-dot { background: #b27b2a; }
+
+    .startup { color: #4d5853; font-size: 12px; font-weight: 650; }
+
+    .row-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+
+    .row-button {
+      min-height: 30px;
+      padding: 0 9px;
+      color: #4b5651;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .row-button.strong { color: var(--accent); background: var(--accent-soft); border-color: #c9ddd4; }
+    .row-button.stop { color: var(--danger); }
+
+    .notes {
+      display: grid;
+      grid-template-columns: 1.35fr 0.9fr;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .note-panel {
+      padding: 17px;
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+    }
+
+    .note-panel h3 { margin: 0 0 11px; font-size: 16px; font-weight: 720; }
+
+    .principles {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 15px;
+    }
+
+    .principle strong { display: block; margin-bottom: 4px; font-size: 12.5px; }
+    .principle span { display: block; color: var(--ink-2); font-size: 12px; }
+
+    .palette {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .swatch {
+      display: flex;
+      min-height: 66px;
+      align-items: flex-end;
+      padding: 8px;
+      font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 11px;
+    }
+
+    .swatch.canvas { background: var(--canvas); }
+    .swatch.surface { background: var(--surface-strong); }
+    .swatch.ink { color: white; background: var(--ink); }
+    .swatch.accent { color: white; background: var(--accent); }
+    .swatch.ready { color: white; background: var(--ready); }
+    .swatch.danger { color: white; background: var(--danger); }
+
+    .state-samples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+    @media (max-width: 900px) {
+      .sheet { width: min(100% - 24px, 1480px); margin-top: 14px; }
+      .sheet-head, .commandbar, .workspace-head { align-items: stretch; flex-direction: column; }
+      .sheet-label { align-self: flex-start; }
+      .summary-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metric:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
+      .metric:nth-child(4) { border-top: 1px solid var(--line); }
+      .notes { grid-template-columns: 1fr; }
+      .principles { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 560px) {
+      .app-topbar { align-items: flex-start; flex-direction: column; }
+      .content { padding: 14px; }
+      .command-group { width: 100%; }
+      .command-group .button { flex: 1 1 auto; }
+      .metric { padding: 13px; }
+      .metric-value { font-size: 21px; }
+      .palette { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <header class="sheet-head">
+      <div>
+        <h1>MCP Supervisor — Light UI Design Sheet</h1>
+        <p>背景は淡く、文字は濃く。常時表示する運用画面として疲れにくく、状態・対象・操作の順に自然に視線が流れることを優先した静的デザイン案です。</p>
+      </div>
+      <div class="sheet-label">STATIC DESIGN PROPOSAL</div>
+    </header>
+
+    <div class="app-window" aria-label="MCP Supervisor light theme proposal">
+      <header class="app-topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"></rect><path d="M9 9h6v6H9zM12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5"></path></svg>
+          </div>
+          <div>
+            <p class="brand-title">MCP Supervisor</p>
+            <p class="brand-subtitle">Local MCP &amp; Secure Tunnel control</p>
+          </div>
+        </div>
+        <div class="connection"><span class="connection-dot" aria-hidden="true"></span>Daemon connected</div>
+      </header>
+
+      <div class="content">
+        <div class="commandbar">
+          <div class="command-group">
+            <button class="button primary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg>Start all</button>
+            <button class="button danger" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>Stop all</button>
+          </div>
+          <div class="command-group">
+            <span class="updated">Updated 17:41:08</span>
+            <button class="button ghost" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M18.5 9A7 7 0 0 0 6.3 6.6L4 9M5.5 15A7 7 0 0 0 17.7 17.4L20 15"></path></svg>Refresh</button>
+            <button class="button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add target</button>
+          </div>
+        </div>
+
+        <div class="summary-strip" aria-label="Status summary">
+          <div class="metric"><span class="metric-label">Ready</span><div class="metric-row"><strong class="metric-value">4</strong><span class="metric-note">healthy</span></div></div>
+          <div class="metric"><span class="metric-label">Degraded</span><div class="metric-row"><strong class="metric-value">0</strong><span class="metric-note">attention</span></div></div>
+          <div class="metric"><span class="metric-label">Stopped</span><div class="metric-row"><strong class="metric-value">1</strong><span class="metric-note">manual</span></div></div>
+          <div class="metric"><span class="metric-label">Targets</span><div class="metric-row"><strong class="metric-value">5</strong><span class="metric-note">registered</span></div></div>
+        </div>
+
+        <div class="workspace">
+          <header class="workspace-head">
+            <div><h2>Targets</h2><p>ServerとTunnelの実状態を分離して監視。操作は対象行の右端へ集約。</p></div>
+            <span class="mini-tool"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>5 targets</span>
+          </header>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="col-target">MCP</th>
+                  <th class="col-state">State</th>
+                  <th class="col-check">Server</th>
+                  <th class="col-check">Tunnel</th>
+                  <th class="col-startup">Startup</th>
+                  <th class="col-actions" style="text-align:right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><div class="target"><span class="target-icon">AS</span><span><span class="target-name">API Service</span><span class="target-id">api-service</span></span></div></td>
+                  <td><span class="status ready">READY</span></td>
+                  <td><span class="health good"><span class="health-dot"></span>Ready</span><span class="check-detail">HTTP 200</span></td>
+                  <td><span class="health good"><span class="health-dot"></span>Ready</span><span class="check-detail">HTTP 200</span></td>
+                  <td><span class="startup">manual</span></td>
+                  <td><div class="row-actions"><button class="row-button strong">Start</button><button class="row-button">Restart</button><button class="row-button stop">Stop</button><button class="row-button">Edit</button></div></td>
+                </tr>
+                <tr>
+                  <td><div class="target"><span class="target-icon">GS</span><span><span class="target-name">Gateway Service</span><span class="target-id">gateway-service</span></span></div></td>
+                  <td><span class="status ready">READY</span></td>
+                  <td><span class="health good"><span class="health-dot"></span>Ready</span><span class="check-detail">127.0.0.1:8770</span></td>
+                  <td><span class="health good"><span class="health-dot"></span>Ready</span><span class="check-detail">HTTP 200</span></td>
+                  <td><span class="startup">manual</span></td>
+                  <td><div class="row-actions"><button class="row-button strong">Start</button><button class="row-button">Restart</button><button class="row-button stop">Stop</button><button class="row-button">Edit</button></div></td>
+                </tr>
+                <tr>
+                  <td><div class="target"><span class="target-icon">DR</span><span><span class="target-name">Device Runtime</span><span class="target-id">device-runtime</span></span></div></td>
+                  <td><span class="status stopped">STOPPED</span></td>
+                  <td><span class="health down"><span class="health-dot"></span>Down</span><span class="check-detail">ECONNREFUSED</span></td>
+                  <td><span class="health down"><span class="health-dot"></span>Down</span><span class="check-detail">process not running</span></td>
+                  <td><span class="startup">manual</span></td>
+                  <td><div class="row-actions"><button class="row-button strong">Start</button><button class="row-button">Restart</button><button class="row-button stop">Stop</button><button class="row-button">Edit</button></div></td>
+                </tr>
+                <tr>
+                  <td><div class="target"><span class="target-icon">BA</span><span><span class="target-name">Browser Agent</span><span class="target-id">browser-agent</span></span></div></td>
+                  <td><span class="status ready">READY</span></td>
+                  <td><span class="health good"><span class="health-dot"></span>Ready</span><span class="check-detail">127.0.0.1:7691</span></td>
+                  <td><span class="health good"><span class="health-dot"></span>Ready</span><span class="check-detail">HTTP 200</span></td>
+                  <td><span class="startup">manual</span></td>
+                  <td><div class="row-actions"><button class="row-button strong">Start</button><button class="row-button">Restart</button><button class="row-button stop">Stop</button><button class="row-button">Edit</button></div></td>
+                </tr>
+                <tr>
+                  <td><div class="target"><span class="target-icon">WB</span><span><span class="target-name">Workboard Service</span><span class="target-id">workboard-service</span></span></div></td>
+                  <td><span class="status ready">READY</span></td>
+                  <td><span class="health good"><span class="health-dot"></span>Ready</span><span class="check-detail">HTTP 200</span></td>
+                  <td><span class="health good"><span class="health-dot"></span>Ready</span><span class="check-detail">tunnel.ready=true</span></td>
+                  <td><span class="startup">manual</span></td>
+                  <td><div class="row-actions"><button class="row-button strong">Start</button><button class="row-button">Restart</button><button class="row-button stop">Stop</button><button class="row-button">Edit</button></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="notes" aria-label="Design notes">
+      <article class="note-panel">
+        <h3>Design principles</h3>
+        <div class="principles">
+          <div class="principle"><strong>1. Light surface, dark type</strong><span>背景は低コントラストの淡色。情報そのものは濃い文字で読み切れるようにし、色は状態と主要操作だけに使う。</span></div>
+          <div class="principle"><strong>2. Table is the hero</strong><span>カードを増やさず、主役はTarget一覧。サマリーは帯として薄く置き、視線をテーブルへ戻す。</span></div>
+          <div class="principle"><strong>3. Quiet technical feel</strong><span>MonoはID・port・診断値だけ。本文と見出しはSegoe UI系で、Windowsデスクトップアプリとして自然に見せる。</span></div>
+        </div>
+      </article>
+
+      <article class="note-panel">
+        <h3>Core palette</h3>
+        <div class="palette" aria-label="Color palette">
+          <div class="swatch canvas">#F1F3F0</div>
+          <div class="swatch surface">#FFFFFF</div>
+          <div class="swatch ink">#18201D</div>
+          <div class="swatch accent">#285C4F</div>
+          <div class="swatch ready">#2F6D50</div>
+          <div class="swatch danger">#A44747</div>
+        </div>
+        <div class="state-samples"><span class="status ready">READY</span><span class="status degraded">DEGRADED</span><span class="status stopped">STOPPED</span></div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

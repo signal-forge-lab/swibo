@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Swibo — Expandable Target List Design Sheet</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d0f11;
+      --surface: #121518;
+      --surface-2: #171b1f;
+      --surface-3: #1d2227;
+      --surface-4: #242a30;
+      --line: #30373d;
+      --line-strong: #465059;
+      --text: #f1efe8;
+      --text-2: #bac0c4;
+      --text-3: #879199;
+      --brass: #d8a84d;
+      --brass-strong: #f0bd5a;
+      --brass-soft: #2a2318;
+      --ready: #65c394;
+      --warn: #e4ac4f;
+      --danger: #ed7871;
+      --stopped: #8b959d;
+      --focus: #f0bd5a;
+      --r-1: 4px;
+      --r-2: 7px;
+      --r-3: 10px;
+      --s-1: 4px;
+      --s-2: 8px;
+      --s-3: 12px;
+      --s-4: 16px;
+      --s-5: 24px;
+      --s-6: 32px;
+      --s-7: 48px;
+      font-family: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    button { font: inherit; cursor: pointer; }
+    button:disabled { cursor: not-allowed; }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+    h1, h2, h3, p { margin: 0; }
+
+    .page {
+      width: min(1480px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 42px 0 80px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(320px, .55fr);
+      gap: 52px;
+      align-items: end;
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--line-strong);
+    }
+    h1 {
+      max-width: 13ch;
+      font-size: clamp(42px, 5.5vw, 78px);
+      line-height: .98;
+      letter-spacing: -.035em;
+      font-weight: 680;
+    }
+    .hero-copy {
+      max-width: 760px;
+      margin-top: 22px;
+      color: var(--text-2);
+      font-size: 16px;
+      line-height: 1.65;
+    }
+    .hero-note {
+      padding: 18px;
+      background: var(--surface);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-2);
+    }
+    .hero-note strong { display: block; margin-bottom: 8px; font-size: 14px; }
+    .hero-note p { color: var(--text-2); font-size: 13px; line-height: 1.6; }
+
+    .rail {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: 34px;
+      padding: 42px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .section-title { font-size: 20px; letter-spacing: -.02em; }
+    .section-note { margin-top: 9px; color: var(--text-3); font-size: 13px; line-height: 1.6; }
+    .section-body { min-width: 0; }
+
+    .principles { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); }
+    .principle { min-height: 166px; padding: 20px; background: var(--surface-2); }
+    .principle + .principle { border-left: 1px solid var(--line); }
+    .principle span { color: var(--brass-strong); font: 12px/1.2 "Cascadia Mono", Consolas, monospace; }
+    .principle strong { display: block; margin-top: 26px; font-size: 15px; }
+    .principle p { margin-top: 8px; color: var(--text-3); font-size: 13px; }
+
+    .palette { display: grid; grid-template-columns: repeat(6, minmax(130px, 1fr)); gap: 10px; }
+    .swatch { overflow: hidden; border: 1px solid var(--line); background: var(--surface-2); border-radius: var(--r-2); }
+    .swatch-color { height: 70px; background: var(--swatch); }
+    .swatch-copy { padding: 10px 11px 11px; }
+    .swatch-copy strong { display: block; font-size: 12px; }
+    .swatch-copy code { display: block; margin-top: 4px; color: var(--text-3); font-size: 11px; }
+
+    .measure-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .measure-card { min-height: 112px; padding: 16px; border: 1px solid var(--line); background: var(--surface-2); border-radius: var(--r-2); }
+    .measure-card span { color: var(--text-3); font-size: 12px; font-weight: 700; }
+    .measure-card strong { display: block; margin-top: 18px; font: 24px/1 "Cascadia Mono", Consolas, monospace; font-weight: 520; }
+    .measure-card small { display: block; margin-top: 9px; color: var(--text-3); font-size: 12px; line-height: 1.45; }
+
+    .topbar-demo {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 14px 17px;
+      background: #101316;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-2);
+    }
+    .brand-demo { display: flex; align-items: center; gap: 12px; }
+    .brand-glyph { width: 38px; height: 38px; display: grid; place-items: center; color: var(--brass-strong); background: var(--brass-soft); border: 1px solid #66502a; border-radius: 8px; }
+    .brand-glyph svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+    .brand-demo strong { display: block; font-size: 15px; }
+    .brand-demo small { color: var(--text-3); font-size: 12px; }
+    .daemon { display: flex; align-items: center; gap: 9px; color: var(--text-2); font-size: 12px; }
+
+    .lamp { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--stopped); outline: 1px solid rgba(255,255,255,.10); outline-offset: 2px; }
+    .lamp.ready { background: var(--ready); }
+    .lamp.warn { background: var(--warn); }
+    .lamp.danger { background: var(--danger); }
+
+    .signal-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line-strong); background: #101316; }
+    .signal { min-height: 82px; padding: 14px 16px; }
+    .signal + .signal { border-left: 1px solid var(--line); }
+    .signal-label { color: var(--text-3); font-size: 12px; font-weight: 700; }
+    .signal-value { display: flex; align-items: baseline; gap: 8px; margin-top: 10px; }
+    .signal-value strong { font: 28px/1 "Cascadia Mono", Consolas, monospace; font-weight: 520; }
+    .signal-value span { color: var(--text-3); font-size: 12px; }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .toolbar-group { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+    .rect-btn {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 12px;
+      color: var(--text-2);
+      background: var(--surface-3);
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .rect-btn:hover { color: var(--text); background: var(--surface-4); }
+    .rect-btn.primary { color: #17130c; background: var(--brass); border-color: var(--brass-strong); }
+    .rect-btn.destructive { color: var(--danger); background: transparent; border-color: #653633; }
+    .rect-btn.ghost { background: transparent; border-color: transparent; }
+
+    .target-list { border: 1px solid var(--line-strong); background: #101316; }
+    .target-columns,
+    .target-summary {
+      display: grid;
+      grid-template-columns: minmax(280px, 1.15fr) minmax(300px, .95fr) minmax(300px, .95fr);
+      align-items: center;
+    }
+    .target-columns {
+      min-height: 34px;
+      color: var(--text-3);
+      background: #0f1214;
+      border-bottom: 1px solid var(--line-strong);
+      font-size: 11px;
+      font-weight: 720;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .target-columns > span { padding: 0 14px; }
+    .target-columns > span + span { border-left: 1px solid #252b30; }
+    .target-item { background: #14181b; }
+    .target-item + .target-item { border-top: 1px solid var(--line); }
+    .target-summary {
+      min-height: 56px;
+      list-style: none;
+      cursor: pointer;
+    }
+    .target-summary::-webkit-details-marker { display: none; }
+    .target-summary:hover { background: #171c20; }
+    .target-summary > * { min-width: 0; min-height: 56px; display: flex; align-items: center; padding: 7px 14px; }
+    .target-summary > * + * { border-left: 1px solid #252b30; }
+    .target-identity { gap: 10px; }
+    .disclosure { width: 20px; height: 20px; display: grid; place-items: center; flex: 0 0 auto; color: var(--text-3); }
+    .disclosure svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; transition: transform 140ms ease; }
+    .target-item[open] .disclosure svg { transform: rotate(90deg); }
+    .tool-symbol { width: 32px; height: 32px; display: grid; place-items: center; color: var(--text-2); border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface-3); }
+    .tool-symbol svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+    .target-name strong { display: block; overflow: hidden; font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }
+    .target-name small { color: var(--text-3); font: 12px/1.4 "Cascadia Mono", Consolas, monospace; }
+    .runtime-cell, .monitor-cell { justify-content: space-between; gap: 10px; }
+    .inline-state { min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 720; letter-spacing: .025em; }
+    .inline-state.muted { color: var(--text-3); font-weight: 560; }
+    .inline-controls { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+    .compact-btn {
+      width: 34px;
+      height: 34px;
+      display: inline-grid;
+      place-items: center;
+      padding: 0;
+      color: var(--text-2);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 5px;
+    }
+    .compact-btn:hover { color: var(--text); background: var(--surface-4); border-color: var(--line-strong); }
+    .compact-btn.start { color: var(--brass-strong); background: var(--brass-soft); border-color: #66502a; }
+    .compact-btn.stop { color: var(--danger); }
+    .compact-btn:disabled { opacity: .28; }
+    .compact-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+
+    .target-detail {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(280px, .75fr);
+      margin-left: 52px;
+      border-top: 1px solid var(--line);
+      background: #101417;
+    }
+    .detail-block { min-width: 0; padding: 14px 16px 15px; }
+    .detail-block + .detail-block { border-left: 1px solid var(--line); }
+    .detail-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 9px; }
+    .detail-title strong { font-size: 12px; }
+    .detail-title span { color: var(--text-3); font-size: 12px; }
+    .component-line { display: grid; grid-template-columns: 92px 105px minmax(0, 1fr); gap: 12px; align-items: center; min-height: 34px; border-top: 1px solid #252b30; }
+    .component-line:first-of-type { border-top-color: var(--line-strong); }
+    .component-name { color: var(--text-2); font-size: 12px; }
+    .component-state { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; }
+    .component-detail { min-width: 0; overflow: hidden; color: var(--text-3); font: 12px/1.4 "Cascadia Mono", Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+    .meta-line { display: grid; grid-template-columns: 94px minmax(0, 1fr); gap: 12px; min-height: 34px; align-items: center; border-top: 1px solid #252b30; }
+    .meta-line span { color: var(--text-3); font-size: 12px; }
+    .meta-line strong { color: var(--text-2); font-size: 12px; font-weight: 600; text-align: right; }
+    .detail-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 7px; padding-top: 12px; }
+
+    .state-matrix { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); }
+    .state-cell { min-height: 116px; padding: 15px; background: var(--surface-2); }
+    .state-cell + .state-cell { border-left: 1px solid var(--line); }
+    .state-cell strong { display: flex; align-items: center; gap: 9px; font-size: 12px; }
+    .state-cell p { margin-top: 13px; color: var(--text-3); font-size: 12.5px; }
+
+    .popover {
+      width: min(430px, 100%);
+      padding: 14px;
+      background: #101316;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-2);
+    }
+    .popover-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
+    .popover-title strong { font-size: 13px; }
+    .popover-title code { color: var(--text-3); font-size: 12px; }
+    .data-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 16px; padding: 7px 0; border-top: 1px solid #272d32; }
+    .data-row span { color: var(--text-3); font-size: 12px; }
+    .data-row strong { overflow-wrap: anywhere; color: var(--text-2); font: 12px/1.5 "Cascadia Mono", Consolas, monospace; font-weight: 500; text-align: right; }
+
+    .do-dont { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .rule-box { padding: 18px; border: 1px solid var(--line); background: var(--surface-2); border-radius: var(--r-2); }
+    .rule-box.good h3 { color: var(--ready); }
+    .rule-box.bad h3 { color: var(--danger); }
+    .rule-box h3 { font-size: 13px; }
+    .rule-box ul { margin: 14px 0 0; padding-left: 18px; color: var(--text-2); }
+    .rule-box li + li { margin-top: 7px; }
+
+    .footer { display: flex; justify-content: space-between; gap: 20px; padding-top: 28px; color: var(--text-3); font-size: 12px; }
+
+    @media (max-width: 1180px) {
+      .hero { grid-template-columns: 1fr; }
+      .rail { grid-template-columns: 1fr; }
+      .palette { grid-template-columns: repeat(3, 1fr); }
+      .principles { grid-template-columns: repeat(2, 1fr); }
+      .principle:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
+      .principle:nth-child(4) { border-top: 1px solid var(--line); }
+      .target-list { overflow-x: auto; }
+      .target-columns, .target-summary { min-width: 980px; grid-template-columns: 300px 340px 340px; }
+      .target-detail { min-width: 928px; }
+    }
+    @media (max-width: 760px) {
+      .page { width: min(100% - 28px, 1480px); padding-top: 26px; }
+      .palette, .measure-grid, .state-matrix { grid-template-columns: repeat(2, 1fr); }
+      .do-dont { grid-template-columns: 1fr; }
+      .topbar-demo { align-items: flex-start; flex-direction: column; }
+      .signal-strip { grid-template-columns: repeat(2, 1fr); }
+      .signal:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
+      .signal:nth-child(4) { border-top: 1px solid var(--line); }
+    }
+    @media (max-width: 470px) {
+      .palette, .measure-grid, .state-matrix, .principles { grid-template-columns: 1fr; }
+      .principle + .principle, .state-cell + .state-cell { border-left: 0; border-top: 1px solid var(--line); }
+      .signal-strip { grid-template-columns: 1fr; }
+      .signal + .signal { border-left: 0; border-top: 1px solid var(--line); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <h1>Compact first. Detail on demand.</h1>
+        <p class="hero-copy">Swibo is organized around one expandable line per target. Runtime is the visible aggregate of the target lifecycle, Server and Tunnel move into the expanded diagnostic layer, and Monitor remains an independent lifecycle with its own controls in the collapsed row.</p>
+      </div>
+      <aside class="hero-note">
+        <strong>Confirmed interaction model</strong>
+        <p>Collapsed: Target · Runtime status · Runtime Start/Stop + Restart · Monitor status · Monitor Start/Stop + Restart. Expanded: Server/Tunnel state · reason for DEGRADED · startup policy · last check · technical details · edit/options.</p>
+      </aside>
+    </header>
+
+    <section class="rail">
+      <div><h2 class="section-title">Operating principles</h2><p class="section-note">The UI follows the lifecycle model instead of presenting every check as an equal column.</p></div>
+      <div class="section-body principles">
+        <div class="principle"><span>01 / runtime</span><strong>Runtime is the aggregate.</strong><p>READY, DEGRADED, STARTING, STOPPING, STOPPED, and ERROR are the primary target states.</p></div>
+        <div class="principle"><span>02 / checks</span><strong>Server and Tunnel explain Runtime.</strong><p>They appear after expansion, not as permanent peer columns beside Runtime.</p></div>
+        <div class="principle"><span>03 / monitor</span><strong>Monitor stays independent.</strong><p>It has its own state and lifecycle controls and is never hidden inside the options menu.</p></div>
+        <div class="principle"><span>04 / controls</span><strong>One primary lifecycle button.</strong><p>The first control changes between Start and Stop. Restart stays beside it and is disabled when it has no useful meaning.</p></div>
+      </div>
+    </section>
+
+    <section class="rail">
+      <div><h2 class="section-title">Color palette</h2><p class="section-note">Brass identifies Swibo and actions; health colors remain semantically independent.</p></div>
+      <div class="section-body palette">
+        <div class="swatch"><div class="swatch-color" style="--swatch:#0d0f11"></div><div class="swatch-copy"><strong>Canvas</strong><code>#0D0F11</code></div></div>
+        <div class="swatch"><div class="swatch-color" style="--swatch:#171b1f"></div><div class="swatch-copy"><strong>Board</strong><code>#171B1F</code></div></div>
+        <div class="swatch"><div class="swatch-color" style="--swatch:#242a30"></div><div class="swatch-copy"><strong>Control</strong><code>#242A30</code></div></div>
+        <div class="swatch"><div class="swatch-color" style="--swatch:#f1efe8"></div><div class="swatch-copy"><strong>Primary text</strong><code>#F1EFE8</code></div></div>
+        <div class="swatch"><div class="swatch-color" style="--swatch:#879199"></div><div class="swatch-copy"><strong>Muted text</strong><code>#879199</code></div></div>
+        <div class="swatch"><div class="swatch-color" style="--swatch:#d8a84d"></div><div class="swatch-copy"><strong>Swibo brass</strong><code>#D8A84D</code></div></div>
+        <div class="swatch"><div class="swatch-color" style="--swatch:#65c394"></div><div class="swatch-copy"><strong>Ready</strong><code>#65C394</code></div></div>
+        <div class="swatch"><div class="swatch-color" style="--swatch:#e4ac4f"></div><div class="swatch-copy"><strong>Attention</strong><code>#E4AC4F</code></div></div>
+        <div class="swatch"><div class="swatch-color" style="--swatch:#ed7871"></div><div class="swatch-copy"><strong>Error / Down</strong><code>#ED7871</code></div></div>
+        <div class="swatch"><div class="swatch-color" style="--swatch:#8b959d"></div><div class="swatch-copy"><strong>Stopped / N/A</strong><code>#8B959D</code></div></div>
+      </div>
+    </section>
+
+    <section class="rail">
+      <div><h2 class="section-title">Core measurements</h2><p class="section-note">The collapsed state is intentionally dense. Detail consumes height only for the target currently being inspected.</p></div>
+      <div class="section-body measure-grid">
+        <div class="measure-card"><span>Collapsed row</span><strong>56px</strong><small>Enough for identity, two lifecycle groups, and clear separation.</small></div>
+        <div class="measure-card"><span>Lifecycle button</span><strong>34px</strong><small>Desktop-density control with tooltip and accessible label.</small></div>
+        <div class="measure-card"><span>Expanded detail</span><strong>auto</strong><small>Only Server/Tunnel diagnostics, metadata, and secondary options.</small></div>
+        <div class="measure-card"><span>Spacing unit</span><strong>4px</strong><small>4 / 8 / 12 / 16 / 24 / 32 / 48.</small></div>
+      </div>
+    </section>
+
+    <section class="rail">
+      <div><h2 class="section-title">Header & summary</h2><p class="section-note">The summary remains compact and does not compete with the target list.</p></div>
+      <div class="section-body">
+        <div class="topbar-demo">
+          <div class="brand-demo"><div class="brand-glyph"><svg viewBox="0 0 24 24"><path d="M5 6h5v5H5zM14 6h5v5h-5zM5 15h5v3H5zM14 15h5v3h-5zM10 8.5h4M7.5 11v4M16.5 11v4"/></svg></div><div><strong>Swibo</strong><small>Local AI Service Switchboard</small></div></div>
+          <div class="daemon"><span class="lamp ready"></span><span><strong>Daemon connected</strong><br><span style="color:var(--text-3)">Updated 04:47:12</span></span></div>
+        </div>
+        <div class="signal-strip" style="margin-top:10px">
+          <div class="signal"><div class="signal-label">Running</div><div class="signal-value"><strong>6</strong><span>runtimes</span></div></div>
+          <div class="signal"><div class="signal-label">Degraded</div><div class="signal-value"><strong>1</strong><span>attention</span></div></div>
+          <div class="signal"><div class="signal-label">Stopped</div><div class="signal-value"><strong>1</strong><span>runtime</span></div></div>
+          <div class="signal"><div class="signal-label">Targets</div><div class="signal-value"><strong>8</strong><span>registered</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rail">
+      <div><h2 class="section-title">Expandable target list</h2><p class="section-note">This is the proposed default Swibo operating surface.</p></div>
+      <div class="section-body">
+        <div class="toolbar">
+          <div class="toolbar-group"><button class="rect-btn primary">Start all runtimes</button><button class="rect-btn destructive">Stop all runtimes</button></div>
+          <div class="toolbar-group"><button class="rect-btn">Refresh</button><button class="rect-btn">Add target</button></div>
+        </div>
+
+        <div class="target-list">
+          <div class="target-columns"><span>Target</span><span>Runtime</span><span>Monitor</span></div>
+
+          <details class="target-item">
+            <summary class="target-summary">
+              <div class="target-identity"><span class="disclosure"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span><div class="tool-symbol"><svg viewBox="0 0 24 24"><path d="M4 12h16M8 7v10M16 7v10M4 8l4 4-4 4M20 8l-4 4 4 4"/></svg></div><div class="target-name"><strong>API Service</strong><small>api-service</small></div></div>
+              <div class="runtime-cell"><span class="inline-state"><span class="lamp ready"></span>READY</span><span class="inline-controls"><button class="compact-btn stop" title="Stop Runtime" aria-label="Stop Runtime"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10"/></svg></button><button class="compact-btn" title="Restart Runtime" aria-label="Restart Runtime"><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
+              <div class="monitor-cell"><span class="inline-state"><span class="lamp"></span>STOPPED</span><span class="inline-controls"><button class="compact-btn start" title="Start Monitor" aria-label="Start Monitor"><svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></svg></button><button class="compact-btn" title="Restart Monitor" aria-label="Restart Monitor" disabled><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
+            </summary>
+            <div class="target-detail">
+              <div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>Runtime = Server + Tunnel</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">127.0.0.1:7676 · HTTP 200</span></div><div class="component-line"><span class="component-name">Tunnel</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">secure tunnel · /readyz 200</span></div></div>
+              <div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Last check</span><strong>04:47:12</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div>
+            </div>
+          </details>
+
+          <details class="target-item" open>
+            <summary class="target-summary">
+              <div class="target-identity"><span class="disclosure"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span><div class="tool-symbol"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M10 5h4M10 18.5h4"/></svg></div><div class="target-name"><strong>Device Runtime</strong><small>device-runtime</small></div></div>
+              <div class="runtime-cell"><span class="inline-state"><span class="lamp warn"></span>DEGRADED</span><span class="inline-controls"><button class="compact-btn stop" title="Stop Runtime" aria-label="Stop Runtime"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10"/></svg></button><button class="compact-btn" title="Restart Runtime" aria-label="Restart Runtime"><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
+              <div class="monitor-cell"><span class="inline-state"><span class="lamp ready"></span>READY</span><span class="inline-controls"><button class="compact-btn stop" title="Stop Monitor" aria-label="Stop Monitor"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10"/></svg></button><button class="compact-btn" title="Restart Monitor" aria-label="Restart Monitor"><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
+            </summary>
+            <div class="target-detail">
+              <div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>DEGRADED because Server is DOWN</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp danger"></span>DOWN</span><span class="component-detail">health check failed · connection refused</span></div><div class="component-line"><span class="component-name">Tunnel</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">/readyz · HTTP 200</span></div></div>
+              <div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Last check</span><strong>04:47:12</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div>
+            </div>
+          </details>
+
+          <details class="target-item">
+            <summary class="target-summary">
+              <div class="target-identity"><span class="disclosure"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span><div class="tool-symbol"><svg viewBox="0 0 24 24"><path d="M5 7h14v10H5zM9 4v3M15 4v3M9 17v3M15 17v3"/></svg></div><div class="target-name"><strong>Search Pool</strong><small>search-pool</small></div></div>
+              <div class="runtime-cell"><span class="inline-state"><span class="lamp ready"></span>READY</span><span class="inline-controls"><button class="compact-btn stop" title="Stop Runtime" aria-label="Stop Runtime"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10"/></svg></button><button class="compact-btn" title="Restart Runtime" aria-label="Restart Runtime"><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
+              <div class="monitor-cell"><span class="inline-state muted">—</span><span></span></div>
+            </summary>
+            <div class="target-detail"><div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>No Tunnel configured</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">search pool ready</span></div></div><div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Monitor</span><strong>Not configured</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div></div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="rail">
+      <div><h2 class="section-title">Lifecycle button rules</h2><p class="section-note">The same two-button pattern is used for Runtime and Monitor.</p></div>
+      <div class="section-body state-matrix">
+        <div class="state-cell"><strong><span class="lamp ready"></span>READY / DEGRADED</strong><p>First button = Stop. Second button = Restart. Both are available unless an operation is already running.</p></div>
+        <div class="state-cell"><strong><span class="lamp"></span>STOPPED</strong><p>First button = Start. Restart is disabled because Restart would only duplicate Start.</p></div>
+        <div class="state-cell"><strong><span class="lamp warn"></span>STARTING / STOPPING</strong><p>Primary action shows operation-in-progress and is disabled. Restart is disabled until the transition resolves.</p></div>
+        <div class="state-cell"><strong><span class="lamp danger"></span>ERROR</strong><p>Choose Start or Stop from the known runtime condition. Restart is available only when recovery semantics are valid.</p></div>
+      </div>
+    </section>
+
+    <section class="rail">
+      <div><h2 class="section-title">Technical inspector</h2><p class="section-note">Raw checks and endpoints are intentionally outside the collapsed row.</p></div>
+      <div class="section-body">
+        <div class="popover">
+          <div class="popover-title"><strong>API Service / technical</strong><code>api-service</code></div>
+          <div class="data-row"><span>Runtime</span><strong>READY</strong></div>
+          <div class="data-row"><span>Server</span><strong>READY · 127.0.0.1:7676</strong></div>
+          <div class="data-row"><span>Tunnel</span><strong>READY · HTTP 200</strong></div>
+          <div class="data-row"><span>Monitor</span><strong>STOPPED</strong></div>
+          <div class="data-row"><span>Startup</span><strong>manual</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rail">
+      <div><h2 class="section-title">UI rules</h2><p class="section-note">These rules should carry directly into the production Swibo implementation.</p></div>
+      <div class="section-body do-dont">
+        <div class="rule-box good"><h3>Use</h3><ul><li>One collapsed line per target as the default operating state.</li><li>Runtime as the visible aggregate; Server/Tunnel only in expanded diagnosis.</li><li>Runtime and Monitor each get state + Start/Stop + Restart in the same row.</li><li>Expand for startup policy, component detail, technical inspection, and edit options.</li><li>Hide absent Monitor/Tunnel controls instead of filling the row with N/A labels.</li><li>Keep icon controls keyboard accessible and expose descriptive tooltips / accessible names.</li></ul></div>
+        <div class="rule-box bad"><h3>Avoid</h3><ul><li>Overall / Server / Tunnel / Monitor as four equal status columns.</li><li>Showing Start and Stop simultaneously when only one is currently valid.</li><li>Hiding Monitor lifecycle inside an overflow menu.</li><li>Turning every target into a tall card.</li><li>Requiring expansion just to perform normal Start/Stop operations.</li><li>Showing a generic options button in the collapsed row when its functions can live in the expanded section.</li></ul></div>
+      </div>
+    </section>
+
+    <footer class="footer"><span>Swibo Design Parts Sheet · expandable target list revision</span><span>Static reference only · production UI not yet changed</span></footer>
+  </main>
+</body>
+</html>

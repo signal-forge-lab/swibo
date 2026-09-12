@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Swibo</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-mark" src="/swibo-icon.png" alt="" aria-hidden="true">
+        <div>
+          <h1>Swibo</h1>
+          <p>Local AI Service Switchboard</p>
+        </div>
+      </div>
+      <div class="connection" id="connection" data-state="loading">
+        <span class="lamp" aria-hidden="true"></span>
+        <span id="connection-label">Connecting</span>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="toolbar" aria-label="Bulk controls">
+        <div class="toolbar-group">
+          <button class="button primary" id="start-all" type="button">Start all runtimes</button>
+          <button class="button destructive" id="stop-all" type="button">Stop all runtimes</button>
+        </div>
+        <div class="toolbar-group">
+          <span class="updated" id="updated">Not updated</span>
+          <button class="button quiet" id="refresh" type="button">Refresh</button>
+          <button class="button" id="add-target" type="button">Add target</button>
+        </div>
+      </section>
+
+      <section class="summary" aria-label="Runtime summary">
+        <div class="signal"><span>Running</span><strong id="count-ready">0</strong></div>
+        <div class="signal"><span>Degraded</span><strong id="count-degraded">0</strong></div>
+        <div class="signal"><span>Stopped</span><strong id="count-stopped">0</strong></div>
+        <div class="signal"><span>Targets</span><strong id="count-total">0</strong></div>
+      </section>
+
+      <section class="panel" aria-labelledby="targets-title">
+        <div class="panel-head">
+          <div>
+            <h2 id="targets-title">Targets</h2>
+            <p>Runtime stays compact; expand a target for Server, Tunnel, and technical details.</p>
+          </div>
+          <span class="target-count" id="target-count">0 targets</span>
+        </div>
+        <div class="target-list-wrap" id="target-list-wrap">
+          <div class="target-columns" aria-hidden="true">
+            <span>Target</span><span>Runtime</span><span>Monitor</span>
+          </div>
+          <div class="target-rows" id="target-rows">
+            <div class="empty-row">Loading targets…</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="inspection-popover" id="inspection-popover" role="dialog" aria-label="Technical details" hidden></div>
+
+  <dialog id="target-dialog" aria-labelledby="dialog-title">
+    <form method="dialog" class="dialog-card" id="target-form">
+      <div class="dialog-head">
+        <div>
+          <h2 id="dialog-title">Target</h2>
+          <p>Edit one registry target as JSON. Keep command and args separate.</p>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="Close" type="submit">×</button>
+      </div>
+      <label for="target-json">Target JSON</label>
+      <textarea id="target-json" spellcheck="false" required></textarea>
+      <p class="field-error" id="editor-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button class="button destructive hidden" id="delete-target" type="button">Remove</button>
+        <span class="dialog-spacer"></span>
+        <button class="button quiet" value="cancel" type="submit">Cancel</button>
+        <button class="button primary" id="save-target" type="button">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Swibo</title>
+  <style>
+    :root{font-family:"Segoe UI",system-ui,sans-serif;color:#f8fafc;background:#020617;color-scheme:dark}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#020617}
+    main{width:min(520px,calc(100vw - 40px));padding:24px;border:1px solid #28354a;border-radius:14px;background:#0b1020}
+    h1{font-size:18px;margin:0 0 8px}p{color:#94a3b8;line-height:1.6;margin:0 0 18px}
+    a{display:inline-flex;min-height:36px;align-items:center;padding:0 13px;border-radius:8px;background:#4ade80;color:#06140c;text-decoration:none;font-weight:700}
+    a:focus-visible{outline:2px solid #dbeafe;outline-offset:3px}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Swibo daemon is unavailable</h1>
+    <p>Node.js daemonを起動できませんでした。daemonを起動した後、Dashboardへ再接続してください。</p>
+    <a href="http://127.0.0.1:17991/">Retry</a>
+  </main>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "schema": "modora.module/v1",
+  "id": "swibo",
+  "name": "Swibo",
+  "description": "Local service and MCP lifecycle control.",
+  "enabled": true,
+  "presentation": {
+    "pinned": true,
+    "order": 10,
+    "icon": {
+      "type": "file",
+      "value": "${MODULE_DIR}/assets/swibo-icon.png"
+    }
+  },
+  "capabilities": ["open", "status", "signals"],
+  "adapter": {
+    "protocol": "process-json-v1",
+    "command": "node",
+    "args": ["${MODULE_DIR}/modora-adapter.mjs"],
+    "cwd": "${MODULE_DIR}",
+    "timeoutMs": 8000
+  }
+}
