@@ -8,7 +8,7 @@ Agents may add or update target definitions when the user asks Swibo to manage a
 
 Primary target-definition locations:
 
-- `config/default-registry.json` — public, disabled generic example checked into Git. Do not replace it with workstation-specific targets.
+- `config/config.example.json` — public, disabled generic example checked into Git. Do not replace it with workstation-specific targets.
 - `%LOCALAPPDATA%\mcp-supervisor\registry.json` — live persisted registry used by the running daemon. Prefer the Swibo HTTP API for live changes instead of editing this file by hand.
 - `POST /api/targets` — add one target to the live registry.
 - `PUT /api/targets/:id` — replace one live target definition.
@@ -16,7 +16,7 @@ Primary target-definition locations:
 
 Targets are not limited to MCP servers. A local AI utility may be represented when it has a deterministic lifecycle/check contract. Prefer the target's existing lifecycle wrappers instead of duplicating service-specific process management in Swibo.
 
-Real workstation targets belong in the live registry. Keep `config/default-registry.json` generic and safe to publish.
+Real workstation targets belong in the live registry. Keep `config/config.example.json` generic and safe to publish.
 
 ## Target contract
 
@@ -87,7 +87,7 @@ When the user asks an AI agent to add a new MCP to Swibo:
 2. Reuse those wrappers whenever they are safe and deterministic.
 3. Choose independent server/tunnel checks that do not create side effects. Add optional `components` only when a companion process needs independent lifecycle control.
 4. Add/update the real target in the live registry via the loopback API. Do not put workstation-specific targets in the public default registry.
-5. Keep the checked-in default as a disabled generic example unless the public schema example itself needs to change.
+5. Keep the checked-in `config/config.example.json` as a disabled generic example unless the public schema example itself needs to change.
 6. Verify the specific target Start → READY, Restart → READY, and Stop → STOPPED unless stopping it would disrupt the user's current work. If disruption is possible, verify non-destructively and report the remaining live test.
 7. Run the Swibo regression gate before considering a code/config change complete.
 
@@ -128,6 +128,10 @@ The final state must not leave a false error string behind when the target is ac
 ## Repository conventions
 
 - Use Git for code/config changes.
+- Keep `main` stable and public-ready, use `develop` for publishable in-progress integration, and use `feature/*` for isolated work.
+- Do not use branches to separate public and secret/local data. Everything committed to this repository must be safe to publish.
+- Keep the public remote named `origin`. Add a `private` remote only if a separate internal-only repository is explicitly required.
+- Keep `.env`, `.env.*`, `secrets/`, `*.key`, `*.pem`, `config.local.json`, and `local/` outside Git.
 - Preserve existing target IDs unless the user explicitly requests migration.
 - Keep generated Tauri directories (`src-tauri/target`, `src-tauri/gen`, `src-tauri/icons`) untracked.
 - Keep the static design sheet under `design/` as a reference; the live UI is `ui/index.html`, `ui/styles.css`, and `ui/app.js`.

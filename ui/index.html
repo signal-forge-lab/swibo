@@ -72,7 +72,9 @@
           <h2 id="dialog-title">Target</h2>
           <p>Edit one registry target as JSON. Keep command and args separate.</p>
         </div>
-        <button class="icon-button" value="cancel" aria-label="Close" type="submit">×</button>
+        <button class="icon-button modal-close" value="cancel" aria-label="Close" type="submit">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6 18 18M18 6 6 18"/></svg>
+        </button>
       </div>
       <label for="target-json">Target JSON</label>
       <textarea id="target-json" spellcheck="false" required></textarea>

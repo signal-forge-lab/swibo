@@ -5,5 +5,8 @@ node_modules/
 *.log
 .env
 .env.*
+secrets/
 *.pem
 *.key
+config.local.json
+local/

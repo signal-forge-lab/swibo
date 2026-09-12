@@ -1,6 +1,6 @@
 # Swibo
 
-[日本語](README.ja.md)
+[日本語](README_ja.md)
 
 Swibo is a local service switchboard for starting, stopping, restarting, and checking development tools from one loopback-only daemon, CLI, and desktop UI.
 
@@ -64,7 +64,7 @@ node .\src\cli.js daemon stop
 The checked-in registry is intentionally a **disabled generic example**:
 
 ```text
-config/default-registry.json
+config/config.example.json
 ```
 
 Swibo copies that file only when no live registry exists. The live user configuration is stored outside the repository:
@@ -74,6 +74,26 @@ Swibo copies that file only when no live registry exists. The live user configur
 ```
 
 Configure real services in the live registry through the UI/API instead of committing workstation-specific paths or credentials.
+
+## Git and local/private data
+
+Swibo keeps development flow and confidentiality as separate concerns:
+
+```text
+main
+  ↑
+develop
+  ↑
+feature/*
+```
+
+- `main` is the stable, public-ready branch.
+- `develop` may contain in-progress work, but everything committed there must still be safe to publish.
+- `feature/*` is used for isolated changes before they are merged into `develop`.
+- Public/private separation is **not** implemented with branches. Secrets, workstation-specific paths, and local-only data must stay outside Git.
+- The public remote is named `origin`. A separate private repository may be added as `private` only when internal-only source code is actually required.
+
+The checked-in example is `config/config.example.json`. Local-only material belongs in ignored paths such as `.env`, `config.local.json`, `secrets/`, or `local/`. Swibo's actual live target registry remains outside the repository under the user-local application data directory.
 
 Example target:
 

@@ -7,7 +7,7 @@ import { Supervisor } from "./supervisor.js";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export function createRuntime() {
-  const store = new RegistryStore({ defaultPath: path.join(projectRoot, "config", "default-registry.json") });
+  const store = new RegistryStore({ defaultPath: path.join(projectRoot, "config", "config.example.json") });
   const registry = store.ensure();
   const supervisor = new Supervisor({ registry });
   return {

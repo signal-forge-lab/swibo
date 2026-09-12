@@ -26,6 +26,9 @@
       --danger: #ed7871;
       --stopped: #8b959d;
       --focus: #f0bd5a;
+      --scroll-track: #0b0e10;
+      --scroll-thumb: #384149;
+      --scroll-thumb-hover: #59636c;
       --r-1: 4px;
       --r-2: 7px;
       --r-3: 10px;
@@ -42,6 +45,12 @@
     }
 
     * { box-sizing: border-box; }
+    * { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) var(--scroll-track); }
+    *::-webkit-scrollbar { width: 10px; height: 10px; }
+    *::-webkit-scrollbar-track { background: var(--scroll-track); }
+    *::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border: 2px solid var(--scroll-track); border-radius: 999px; }
+    *::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
+    *::-webkit-scrollbar-corner { background: var(--scroll-track); }
     html { background: var(--bg); }
     body {
       margin: 0;
@@ -172,8 +181,8 @@
       gap: 8px;
       padding: 0 12px;
       color: var(--text-2);
-      background: var(--surface-3);
-      border: 1px solid var(--line-strong);
+      background: transparent;
+      border: 1px solid transparent;
       border-radius: 6px;
       font-size: 12px;
       font-weight: 650;
@@ -232,22 +241,25 @@
       place-items: center;
       padding: 0;
       color: var(--text-2);
-      background: transparent;
-      border: 1px solid transparent;
+      background: var(--surface-3);
+      border: 1px solid var(--line-strong);
       border-radius: 5px;
     }
     .compact-btn:hover { color: var(--text); background: var(--surface-4); border-color: var(--line-strong); }
-    .compact-btn.start { color: var(--brass-strong); background: var(--brass-soft); border-color: #66502a; }
+    .compact-btn.start { color: var(--brass-strong); }
     .compact-btn.stop { color: var(--danger); }
     .compact-btn:disabled { opacity: .28; }
     .compact-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; }
 
     .target-detail {
-      display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(280px, .75fr);
-      margin-left: 52px;
+      margin-left: 0;
       border-top: 1px solid var(--line);
       background: #101417;
+    }
+    .target-detail-inner {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(280px, .75fr);
+      padding-left: 52px;
     }
     .detail-block { min-width: 0; padding: 14px 16px 15px; }
     .detail-block + .detail-block { border-left: 1px solid var(--line); }
@@ -269,6 +281,14 @@
     .state-cell + .state-cell { border-left: 1px solid var(--line); }
     .state-cell strong { display: flex; align-items: center; gap: 9px; font-size: 12px; }
     .state-cell p { margin-top: 13px; color: var(--text-3); font-size: 12.5px; }
+
+    .utility-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .utility-demo { min-height: 150px; padding: 16px; background: var(--surface-2); border: 1px solid var(--line); }
+    .utility-demo > p { margin-top: 9px; color: var(--text-3); font-size: 12px; }
+    .modal-close-demo { width: 34px; height: 34px; display: inline-grid; place-items: center; padding: 0; color: var(--text-2); background: var(--surface-3); border: 1px solid var(--line-strong); border-radius: 6px; }
+    .modal-close-demo svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+    .scroll-demo { height: 92px; margin-top: 12px; overflow: auto; background: #0b0d0f; border: 1px solid #293037; }
+    .scroll-demo-inner { height: 210px; padding: 12px; color: var(--text-3); font: 12px/1.55 "Cascadia Mono", Consolas, monospace; }
 
     .popover {
       width: min(430px, 100%);
@@ -303,7 +323,8 @@
       .principle:nth-child(4) { border-top: 1px solid var(--line); }
       .target-list { overflow-x: auto; }
       .target-columns, .target-summary { min-width: 980px; grid-template-columns: 300px 340px 340px; }
-      .target-detail { min-width: 928px; }
+      .target-detail { min-width: 980px; }
+      .utility-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 760px) {
       .page { width: min(100% - 28px, 1480px); padding-top: 26px; }
@@ -408,8 +429,10 @@
               <div class="monitor-cell"><span class="inline-state"><span class="lamp"></span>STOPPED</span><span class="inline-controls"><button class="compact-btn start" title="Start Monitor" aria-label="Start Monitor"><svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></svg></button><button class="compact-btn" title="Restart Monitor" aria-label="Restart Monitor" disabled><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
             </summary>
             <div class="target-detail">
-              <div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>Runtime = Server + Tunnel</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">127.0.0.1:7676 · HTTP 200</span></div><div class="component-line"><span class="component-name">Tunnel</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">secure tunnel · /readyz 200</span></div></div>
-              <div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Last check</span><strong>04:47:12</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div>
+              <div class="target-detail-inner">
+                <div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>Runtime = Server + Tunnel</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">127.0.0.1:7676 · HTTP 200</span></div><div class="component-line"><span class="component-name">Tunnel</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">secure tunnel · /readyz 200</span></div></div>
+                <div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Last check</span><strong>04:47:12</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div>
+              </div>
             </div>
           </details>
 
@@ -420,8 +443,10 @@
               <div class="monitor-cell"><span class="inline-state"><span class="lamp ready"></span>READY</span><span class="inline-controls"><button class="compact-btn stop" title="Stop Monitor" aria-label="Stop Monitor"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10"/></svg></button><button class="compact-btn" title="Restart Monitor" aria-label="Restart Monitor"><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
             </summary>
             <div class="target-detail">
-              <div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>DEGRADED because Server is DOWN</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp danger"></span>DOWN</span><span class="component-detail">health check failed · connection refused</span></div><div class="component-line"><span class="component-name">Tunnel</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">/readyz · HTTP 200</span></div></div>
-              <div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Last check</span><strong>04:47:12</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div>
+              <div class="target-detail-inner">
+                <div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>DEGRADED because Server is DOWN</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp danger"></span>DOWN</span><span class="component-detail">health check failed · connection refused</span></div><div class="component-line"><span class="component-name">Tunnel</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">/readyz · HTTP 200</span></div></div>
+                <div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Last check</span><strong>04:47:12</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div>
+              </div>
             </div>
           </details>
 
@@ -431,9 +456,17 @@
               <div class="runtime-cell"><span class="inline-state"><span class="lamp ready"></span>READY</span><span class="inline-controls"><button class="compact-btn stop" title="Stop Runtime" aria-label="Stop Runtime"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10"/></svg></button><button class="compact-btn" title="Restart Runtime" aria-label="Restart Runtime"><svg viewBox="0 0 24 24"><path d="M19 8V4l-3 3M19 4h-4M19 12a7 7 0 1 1-2-5"/></svg></button></span></div>
               <div class="monitor-cell"><span class="inline-state muted">—</span><span></span></div>
             </summary>
-            <div class="target-detail"><div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>No Tunnel configured</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">search pool ready</span></div></div><div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Monitor</span><strong>Not configured</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div></div>
+            <div class="target-detail"><div class="target-detail-inner"><div class="detail-block"><div class="detail-title"><strong>Runtime composition</strong><span>No Tunnel configured</span></div><div class="component-line"><span class="component-name">Server</span><span class="component-state"><span class="lamp ready"></span>READY</span><span class="component-detail">search pool ready</span></div></div><div class="detail-block"><div class="detail-title"><strong>Options</strong><span>expanded only</span></div><div class="meta-line"><span>Startup</span><strong>Manual</strong></div><div class="meta-line"><span>Monitor</span><strong>Not configured</strong></div><div class="detail-actions"><button class="rect-btn ghost">Technical details</button><button class="rect-btn">Edit target</button></div></div></div></div>
           </details>
         </div>
+      </div>
+    </section>
+
+    <section class="rail">
+      <div><h2 class="section-title">Utility controls</h2><p class="section-note">Small controls share the same alignment and surface rules as the target lifecycle buttons.</p></div>
+      <div class="section-body utility-grid">
+        <div class="utility-demo"><strong>Modal close</strong><p>Use a centered SVG X rather than a font glyph so the mark remains optically centered across Windows fonts and scaling.</p><button class="modal-close-demo" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6 18 18M18 6 6 18"/></svg></button></div>
+        <div class="utility-demo"><strong>Scrollbar</strong><p>10px Chromium scrollbar, thin Firefox scrollbar, neutral thumb with a brighter hover state.</p><div class="scroll-demo"><div class="scroll-demo-inner">Scrollable surface<br>Target list<br>JSON editor<br>Inspector<br>Dialog content<br><br>Thumb uses the shared scrollbar tokens.</div></div></div>
       </div>
     </section>
 
@@ -469,7 +502,7 @@
       </div>
     </section>
 
-    <footer class="footer"><span>Swibo Design Parts Sheet · expandable target list revision</span><span>Static reference only · production UI not yet changed</span></footer>
+    <footer class="footer"><span>Swibo Design Parts Sheet · expandable target list revision</span><span>Production-aligned static reference</span></footer>
   </main>
 </body>
 </html>

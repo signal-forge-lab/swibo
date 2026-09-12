@@ -151,20 +151,22 @@ function targetDetail(target) {
   const server = componentDetailRow(target, "server", "Server");
   const tunnel = componentDetailRow(target, "tunnel", "Tunnel");
   return `<div class="target-detail">
-    <div class="detail-block">
-      <div class="detail-title"><strong>Runtime composition</strong><span>${escapeHtml(runtimeReason(target))}</span></div>
-      ${server || `<div class="component-line"><span class="component-name">Server</span>${stateReadout("N/A", { muted: true })}<span class="component-detail"></span></div>`}
-      ${tunnel}
-      ${target.error ? `<p class="runtime-error">${escapeHtml(target.error)}</p>` : ""}
-    </div>
-    <div class="detail-block">
-      <div class="detail-title"><strong>Options</strong><span>expanded only</span></div>
-      <div class="meta-line"><span>Startup</span><strong>${escapeHtml(target.startupPolicy || "manual")}</strong></div>
-      <div class="meta-line"><span>Last check</span><strong class="mono">${escapeHtml(lastCheckedLabel)}</strong></div>
-      <div class="meta-line"><span>Target ID</span><strong class="mono">${escapeHtml(target.id)}</strong></div>
-      <div class="detail-actions">
-        <button class="button quiet small" type="button" data-inspect="info">Technical details</button>
-        <button class="button small" type="button" data-action="edit">Edit target</button>
+    <div class="target-detail-inner">
+      <div class="detail-block">
+        <div class="detail-title"><strong>Runtime composition</strong><span>${escapeHtml(runtimeReason(target))}</span></div>
+        ${server || `<div class="component-line"><span class="component-name">Server</span>${stateReadout("N/A", { muted: true })}<span class="component-detail"></span></div>`}
+        ${tunnel}
+        ${target.error ? `<p class="runtime-error">${escapeHtml(target.error)}</p>` : ""}
+      </div>
+      <div class="detail-block">
+        <div class="detail-title"><strong>Options</strong><span>expanded only</span></div>
+        <div class="meta-line"><span>Startup</span><strong>${escapeHtml(target.startupPolicy || "manual")}</strong></div>
+        <div class="meta-line"><span>Last check</span><strong class="mono">${escapeHtml(lastCheckedLabel)}</strong></div>
+        <div class="meta-line"><span>Target ID</span><strong class="mono">${escapeHtml(target.id)}</strong></div>
+        <div class="detail-actions">
+          <button class="button quiet small" type="button" data-inspect="info">Technical details</button>
+          <button class="button small" type="button" data-action="edit">Edit target</button>
+        </div>
       </div>
     </div>
   </div>`;

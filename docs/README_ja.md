@@ -64,7 +64,7 @@ node .\src\cli.js daemon stop
 Git に含まれる default registry は、意図的に **disabled の汎用サンプル1件だけ**です。
 
 ```text
-config/default-registry.json
+config/config.example.json
 ```
 
 Swibo は live registry が存在しない初回だけ、この default をコピーします。実運用設定はリポジトリ外のユーザー領域に保存されます。
@@ -73,7 +73,27 @@ Swibo は live registry が存在しない初回だけ、この default をコ�
 %LOCALAPPDATA%\mcp-supervisor\registry.json
 ```
 
-実サービスは UI / API から live registry に追加してください。端末固有パスや認証情報を `config/default-registry.json` にコミットしない運用を推奨します。
+実サービスは UI / API から live registry に追加してください。端末固有パスや認証情報を `config/config.example.json` にコミットしない運用を推奨します。
+
+## Git とローカル / 非公開データ
+
+Swibo では、開発工程と公開可否を別の責務として管理します。
+
+```text
+main
+  ↑
+develop
+  ↑
+feature/*
+```
+
+- `main` は安定版かつ公開可能なブランチです。
+- `develop` は開発途中を含められますが、commit される内容は常に公開可能であることを前提にします。
+- `feature/*` は個別機能や修正を分離し、`develop` へ統合するために使います。
+- 公開 / 非公開の分離にはブランチを使いません。Secret、PC 固有パス、ローカル専用データは Git 管理外に置きます。
+- Public remote は `origin` とします。内部専用ソースが本当に必要になった場合だけ、別の Private Repository を `private` remote として追加します。
+
+Git 管理する公開サンプルは `config/config.example.json` です。`.env`、`config.local.json`、`secrets/`、`local/` はローカル専用として ignore します。実運用 Target の live registry は従来どおりリポジトリ外のユーザー領域に保存されます。
 
 汎用 Target 例:
 

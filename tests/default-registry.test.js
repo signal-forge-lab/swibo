@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 
 import { validateRegistry } from "../src/registry.js";
 
-const rawText = fs.readFileSync(new URL("../config/default-registry.json", import.meta.url), "utf8");
+const rawText = fs.readFileSync(new URL("../config/config.example.json", import.meta.url), "utf8");
 const registry = validateRegistry(JSON.parse(rawText));
 
 test("public default registry contains only a generic example target", () => {
