@@ -48,7 +48,7 @@
           },
           "check": {
             "type": "pidFile",
-            "path": "${LOCALAPPDATA}/swibo-example/monitor.pid"
+            "path": "${SWIBO_STATE_HOME}/swibo-example-monitor.pid"
           }
         }
       }

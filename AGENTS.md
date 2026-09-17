@@ -9,7 +9,7 @@ Agents may add or update target definitions when the user asks Swibo to manage a
 Primary target-definition locations:
 
 - `config/config.example.json` — public, disabled generic example checked into Git. Do not replace it with workstation-specific targets.
-- `%LOCALAPPDATA%\mcp-supervisor\registry.json` — live persisted registry used by the running daemon. Prefer the Swibo HTTP API for live changes instead of editing this file by hand.
+- `%LOCALAPPDATA%\mcp-supervisor\registry.json` on Windows or `~/Library/Application Support/mcp-supervisor/registry.json` on macOS — live persisted registry used by the running daemon. Prefer the Swibo HTTP API for live changes instead of editing this file by hand.
 - `POST /api/targets` — add one target to the live registry.
 - `PUT /api/targets/:id` — replace one live target definition.
 - `DELETE /api/targets/:id` — remove one live target definition. Removal does not imply killing unrelated processes.
@@ -56,7 +56,7 @@ Each target uses this shape:
         "start": [{ "command": "pwsh", "args": ["-NoProfile", "-File", "start-monitor.ps1"] }],
         "stop": [{ "command": "pwsh", "args": ["-NoProfile", "-File", "stop-monitor.ps1"] }]
       },
-      "check": { "type": "pidFile", "path": "${LOCALAPPDATA}/example/monitor.pid" }
+      "check": { "type": "pidFile", "path": "${SWIBO_STATE_HOME}/example-monitor.pid" }
     }
   }
 }
@@ -78,6 +78,7 @@ Use the existing registry schema and tests as the source of truth for supported 
 8. Do not change the loopback-only security boundary. The dashboard daemon remains bound to `127.0.0.1` and retains Host/Origin restrictions.
 9. Optional companion processes such as GUI monitors belong under `components`. Component lifecycle is independent from the target's Server/Tunnel READY state: a target may be READY while its Monitor is STOPPED.
 10. Component keys are generic. `monitor` is the first UI-exposed component, but core supervisor code must not hard-code any product-specific process name.
+11. Use `${SWIBO_STATE_HOME}` for Swibo-owned cross-platform state paths. Existing `${LOCALAPPDATA}` and `${APPDATA}` expansion remains available for compatibility with Windows-specific target wrappers.
 
 ## AI procedure for adding a target
 
@@ -111,9 +112,11 @@ Invoke-RestMethod -Method Put -Uri "http://127.0.0.1:17991/api/targets/$id" -Con
 For Swibo source or durable registry changes, run:
 
 ```text
-npm.cmd run check
+npm run check
 cd src-tauri && cargo test && cargo clippy -- -D warnings
 ```
+
+On Windows, `npm.cmd` may be used instead of `npm`. The shared desktop launcher is `node scripts/launch.mjs`; `scripts/launch.ps1` is only a Windows compatibility wrapper.
 
 For desktop/icon changes also run a release build and launch the resulting app. Confirm the main window opens, the dashboard loads, and the native window icon is correct.
 

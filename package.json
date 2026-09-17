@@ -11,8 +11,8 @@
     "test": "node --test",
     "start": "node src/daemon.js",
     "cli": "node src/cli.js",
-    "desktop": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1",
-    "desktop:build": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1 -Build",
+    "desktop": "node scripts/launch.mjs",
+    "desktop:build": "node scripts/launch.mjs --build",
     "check": "node --check src/checks.js && node --check src/cli.js && node --check src/daemon.js && node --check src/http-policy.js && node --check src/paths.js && node --check src/registry.js && node --check src/runner.js && node --check src/runtime.js && node --check src/supervisor.js && node --check ui/app.js && npm test"
   },
   "engines": {

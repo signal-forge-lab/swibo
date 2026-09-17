@@ -26,37 +26,39 @@ Runtime states are primarily:
 
 From the repository root:
 
-```powershell
-npm.cmd run desktop
+```text
+Windows: npm.cmd run desktop
+macOS:   npm run desktop
 ```
 
 The desktop launcher builds the release executable when needed. To force a rebuild:
 
-```powershell
-npm.cmd run desktop:build
+```text
+Windows: npm.cmd run desktop:build
+macOS:   npm run desktop:build
 ```
 
 Daemon only:
 
-```powershell
-node .\src\cli.js daemon start
+```text
+node src/cli.js daemon start
 ```
 
 ## CLI
 
-```powershell
-node .\src\cli.js status
-node .\src\cli.js status example-service
+```text
+node src/cli.js status
+node src/cli.js status example-service
 
-node .\src\cli.js start --all
-node .\src\cli.js stop --all
+node src/cli.js start --all
+node src/cli.js stop --all
 
-node .\src\cli.js start example-service
-node .\src\cli.js restart example-service
-node .\src\cli.js stop example-service
+node src/cli.js start example-service
+node src/cli.js restart example-service
+node src/cli.js stop example-service
 
-node .\src\cli.js daemon status
-node .\src\cli.js daemon stop
+node src/cli.js daemon status
+node src/cli.js daemon stop
 ```
 
 ## Registry
@@ -70,8 +72,11 @@ config/config.example.json
 Swibo copies that file only when no live registry exists. The live user configuration is stored outside the repository:
 
 ```text
-%LOCALAPPDATA%\mcp-supervisor\registry.json
+Windows: %LOCALAPPDATA%\mcp-supervisor\registry.json
+macOS:   ~/Library/Application Support/mcp-supervisor/registry.json
 ```
+
+Registry paths may use `${SWIBO_STATE_HOME}` when they need to live beside Swibo's platform-specific state. Existing `${LOCALAPPDATA}` / `${APPDATA}` references remain supported for compatibility.
 
 Configure real services in the live registry through the UI/API instead of committing workstation-specific paths or credentials.
 
@@ -156,9 +161,11 @@ Generated/local runtime state is excluded from source control.
 
 ## Verification
 
-```powershell
-npm.cmd run check
-cargo test --manifest-path .\src-tauri\Cargo.toml
-cargo clippy --manifest-path .\src-tauri\Cargo.toml -- -D warnings
-cargo build --release --manifest-path .\src-tauri\Cargo.toml
+```text
+npm run check
+cargo test --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+cargo build --release --manifest-path src-tauri/Cargo.toml
 ```
+
+On Windows, `npm.cmd` can be used in place of `npm`. macOS desktop development requires Node, Rust, and Xcode Command Line Tools. The current launcher is for repository-local development; signing, notarization, and DMG distribution are not part of this workflow.

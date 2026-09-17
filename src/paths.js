@@ -1,12 +1,26 @@
 import os from "node:os";
 import path from "node:path";
 
-const variables = () => ({
-  HOME: os.homedir(),
-  USERPROFILE: process.env.USERPROFILE || os.homedir(),
-  LOCALAPPDATA: process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"),
-  APPDATA: process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming")
-});
+export function resolvePlatformPaths({ platform = process.platform, home = os.homedir(), env = process.env } = {}) {
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
+  const applicationData = platform === "darwin"
+    ? pathApi.join(home, "Library", "Application Support")
+    : platform === "win32"
+      ? pathApi.join(home, "AppData", "Local")
+      : env.XDG_STATE_HOME || pathApi.join(home, ".local", "state");
+  const localAppData = env.LOCALAPPDATA || applicationData;
+  const appData = env.APPDATA || (platform === "win32" ? pathApi.join(home, "AppData", "Roaming") : applicationData);
+  const stateHome = env.MCP_SUPERVISOR_STATE_DIR || pathApi.join(localAppData, "mcp-supervisor");
+  return {
+    HOME: home,
+    USERPROFILE: env.USERPROFILE || home,
+    LOCALAPPDATA: localAppData,
+    APPDATA: appData,
+    SWIBO_STATE_HOME: stateHome
+  };
+}
+
+const variables = () => resolvePlatformPaths();
 
 export function expandPath(value) {
   if (typeof value !== "string") return value;
@@ -32,5 +46,5 @@ export function expandValue(value) {
 }
 
 export function stateRoot() {
-  return path.join(variables().LOCALAPPDATA, "mcp-supervisor");
+  return variables().SWIBO_STATE_HOME;
 }

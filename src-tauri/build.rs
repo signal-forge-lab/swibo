@@ -34,6 +34,7 @@ fn write_context_icon(manifest: &std::path::Path, frames: &[(u16, Vec<u8>)]) {
     fs::write(icon_dir.join("icon.png"), icon_256).expect("write context icon");
 }
 
+#[cfg(target_os = "windows")]
 fn build_ico(frames: &[(u16, Vec<u8>)]) -> Vec<u8> {
     let count = frames.len() as u16;
     let directory_size = 6 + frames.len() * 16;
@@ -64,6 +65,7 @@ fn build_ico(frames: &[(u16, Vec<u8>)]) -> Vec<u8> {
     ico
 }
 
+#[cfg(target_os = "windows")]
 fn write_windows_icon(frames: &[(u16, Vec<u8>)]) -> PathBuf {
     let path = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR")).join("swibo.ico");
     fs::write(&path, build_ico(frames)).expect("write generated icon");
@@ -77,8 +79,14 @@ fn main() {
 
     let frames = read_icon_frames(&manifest);
     write_context_icon(&manifest, &frames);
-    let windows =
-        tauri_build::WindowsAttributes::new().window_icon_path(write_windows_icon(&frames));
-    tauri_build::try_build(tauri_build::Attributes::new().windows_attributes(windows))
+    #[cfg(target_os = "windows")]
+    {
+        let windows =
+            tauri_build::WindowsAttributes::new().window_icon_path(write_windows_icon(&frames));
+        tauri_build::try_build(tauri_build::Attributes::new().windows_attributes(windows))
+            .expect("failed to run tauri build script");
+    }
+    #[cfg(not(target_os = "windows"))]
+    tauri_build::try_build(tauri_build::Attributes::new())
         .expect("failed to run tauri build script");
 }

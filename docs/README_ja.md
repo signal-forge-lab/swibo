@@ -26,37 +26,39 @@ Runtime の主な状態:
 
 リポジトリのルートで実行します。
 
-```powershell
-npm.cmd run desktop
+```text
+Windows: npm.cmd run desktop
+macOS:   npm run desktop
 ```
 
 Desktop launcher は必要な場合だけ release executable をビルドします。明示的に再ビルドする場合:
 
-```powershell
-npm.cmd run desktop:build
+```text
+Windows: npm.cmd run desktop:build
+macOS:   npm run desktop:build
 ```
 
 Daemon のみ:
 
-```powershell
-node .\src\cli.js daemon start
+```text
+node src/cli.js daemon start
 ```
 
 ## CLI
 
-```powershell
-node .\src\cli.js status
-node .\src\cli.js status example-service
+```text
+node src/cli.js status
+node src/cli.js status example-service
 
-node .\src\cli.js start --all
-node .\src\cli.js stop --all
+node src/cli.js start --all
+node src/cli.js stop --all
 
-node .\src\cli.js start example-service
-node .\src\cli.js restart example-service
-node .\src\cli.js stop example-service
+node src/cli.js start example-service
+node src/cli.js restart example-service
+node src/cli.js stop example-service
 
-node .\src\cli.js daemon status
-node .\src\cli.js daemon stop
+node src/cli.js daemon status
+node src/cli.js daemon stop
 ```
 
 ## Registry
@@ -70,8 +72,11 @@ config/config.example.json
 Swibo は live registry が存在しない初回だけ、この default をコピーします。実運用設定はリポジトリ外のユーザー領域に保存されます。
 
 ```text
-%LOCALAPPDATA%\mcp-supervisor\registry.json
+Windows: %LOCALAPPDATA%\mcp-supervisor\registry.json
+macOS:   ~/Library/Application Support/mcp-supervisor/registry.json
 ```
+
+Registry 内で Swibo の platform 固有 state 領域を参照する場合は `${SWIBO_STATE_HOME}` を利用できます。既存互換のため `${LOCALAPPDATA}` / `${APPDATA}` も引き続き利用できます。
 
 実サービスは UI / API から live registry に追加してください。端末固有パスや認証情報を `config/config.example.json` にコミットしない運用を推奨します。
 
@@ -156,9 +161,11 @@ Daemon は `127.0.0.1:17991` のみで listen し、Host / Origin も loopback �
 
 ## 検証
 
-```powershell
-npm.cmd run check
-cargo test --manifest-path .\src-tauri\Cargo.toml
-cargo clippy --manifest-path .\src-tauri\Cargo.toml -- -D warnings
-cargo build --release --manifest-path .\src-tauri\Cargo.toml
+```text
+npm run check
+cargo test --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+cargo build --release --manifest-path src-tauri/Cargo.toml
 ```
+
+Windows では `npm` の代わりに `npm.cmd` を利用できます。macOS の Desktop 開発には Node、Rust、Xcode Command Line Tools が必要です。現在の launcher はリポジトリから直接起動する開発用途を対象としており、署名・notarization・DMG 配布は別スコープです。
