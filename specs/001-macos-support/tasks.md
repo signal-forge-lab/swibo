@@ -15,9 +15,9 @@
 ## Phase 3: Verification
 
 - [x] T007 Run Windows `npm.cmd run check`, Tauri tests, clippy, and release build.
-- [ ] T008 Transfer the verified feature branch to the user's Mac without publishing the private development branch.
-- [ ] T009 Run Mac Node tests, Tauri tests/clippy, release build, desktop launch, daemon health, and state-location smoke.
-- [ ] T010 Re-run Windows regression if Mac verification requires code changes, then fast-forward the verified feature branch into local `develop`.
+- [x] T008 Transfer the verified feature branch to the user's Mac without publishing the private development branch.
+- [x] T009 Run Mac Node tests, Tauri tests/clippy, release build, desktop launch, daemon health, and state-location smoke.
+- [x] T010 Re-run Windows regression if Mac verification requires code changes, then fast-forward the verified feature branch into local `develop`.
 
 ## Completion
 
