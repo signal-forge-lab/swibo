@@ -1,5 +1,5 @@
 {
-  "schema": "modora.module/v1",
+  "schema": "loctl.module/v1",
   "id": "swibo",
   "name": "Swibo",
   "description": "Local service and MCP lifecycle control.",
@@ -16,7 +16,7 @@
   "adapter": {
     "protocol": "process-json-v1",
     "command": "node",
-    "args": ["${MODULE_DIR}/modora-adapter.mjs"],
+    "args": ["${MODULE_DIR}/loctl-adapter.mjs"],
     "cwd": "${MODULE_DIR}",
     "timeoutMs": 8000
   }

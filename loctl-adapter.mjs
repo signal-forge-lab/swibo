@@ -93,8 +93,8 @@ function openSwibo(moduleDir) {
 }
 
 const request = await readRequest();
-if (request.protocol !== "modora.adapter/v1" || request.moduleId !== "swibo") {
-  reply({ ok: false, message: "Unsupported Modora request" });
+if (request.protocol !== "loctl.adapter/v1" || request.moduleId !== "swibo") {
+  reply({ ok: false, message: "Unsupported Loctl request" });
 } else if (request.action === "status") {
   reply(await status());
 } else if (request.action === "open") {
