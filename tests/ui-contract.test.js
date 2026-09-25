@@ -85,3 +85,27 @@ test("Swibo themes its scrollbars", () => {
   assert.match(css, /::-webkit-scrollbar\s*\{/);
   assert.match(css, /::-webkit-scrollbar-thumb\s*\{/);
 });
+
+test("target list exposes Auto Start as a first-class row control", () => {
+  assert.match(html, />Auto Start</);
+  assert.match(js, /data-autostart-toggle/);
+  assert.match(js, /role="switch"/);
+  assert.match(js, /aria-checked="/);
+  assert.match(css, /\.autostart-switch\s*\{/);
+});
+
+test("Auto Start summary and filter are visible without opening target JSON", () => {
+  assert.match(html, /id="auto-start-count"/);
+  assert.match(html, /data-target-filter="all"/);
+  assert.match(html, /data-target-filter="auto"/);
+  assert.match(js, /startupPolicy === "auto"/);
+  assert.match(js, /targetFilter/);
+});
+
+test("Auto Start changes reuse target PUT and do not invoke lifecycle actions", () => {
+  assert.match(js, /async function setAutoStart/);
+  assert.match(js, /startupPolicy:\s*enabled \? "auto" : "manual"/);
+  assert.match(js, /method:\s*"PUT"/);
+  const body = js.match(/async function setAutoStart[\s\S]*?\n\}/)?.[0] || "";
+  assert.doesNotMatch(body, /\/start|\/stop|\/restart|runAction/);
+});

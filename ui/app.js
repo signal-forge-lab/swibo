@@ -12,11 +12,13 @@ let snapshot = { targets: [], registry: { targets: [] } };
 let editingId = null;
 let refreshing = false;
 let actionBusy = false;
+let targetFilter = "all";
 let renderFingerprint = "";
 let lastCheckedLabel = "—";
 let openMenuTarget = null;
 let toastTimer;
 const expandedTargets = new Set();
+const autoStartBusy = new Set();
 
 const icons = {
   start: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg>`,
@@ -118,6 +120,15 @@ function componentControl(target, key) {
   </span>`;
 }
 
+function autoStartControl(target) {
+  const enabled = target.startupPolicy === "auto";
+  const busy = autoStartBusy.has(target.id);
+  return `<button class="autostart-switch" type="button" role="switch" data-autostart-toggle aria-checked="${enabled}" aria-label="Auto Start for ${escapeHtml(target.name)}"${busy ? " disabled" : ""}>
+    <span class="autostart-track" aria-hidden="true"><span class="autostart-thumb"></span></span>
+    <span>Auto</span>
+  </button>`;
+}
+
 function rowMenu(target) {
   const open = openMenuTarget === target.id;
   return `<div class="more-cell">
@@ -188,6 +199,7 @@ function targetRow(target) {
         <button class="expand-target" type="button" data-expand-target aria-label="${expanded ? "Collapse" : "Expand"} ${escapeHtml(target.name)}" aria-expanded="${expanded}">${icons.disclosure}</button>
         <span class="tool-icon" aria-hidden="true">${icons.tool}</span>
         <span class="target-name"><strong>${escapeHtml(target.name)}</strong><small>${escapeHtml(target.id)}${target.enabled ? "" : " · disabled"}</small></span>
+        ${autoStartControl(target)}
       </div>
       <div class="runtime-cell">${runtimeControl(target)}</div>
       <div class="monitor-cell">${componentControl(target, "monitor")}</div>
@@ -201,17 +213,29 @@ function render() {
   const validIds = new Set(snapshot.targets.map((target) => target.id));
   for (const id of expandedTargets) if (!validIds.has(id)) expandedTargets.delete(id);
   if (openMenuTarget && !validIds.has(openMenuTarget)) openMenuTarget = null;
-  const fingerprint = JSON.stringify([snapshot.targets, [...expandedTargets].sort(), openMenuTarget, actionBusy, lastCheckedLabel]);
+  const fingerprint = JSON.stringify([snapshot.targets, [...expandedTargets].sort(), openMenuTarget, actionBusy, targetFilter, [...autoStartBusy].sort(), lastCheckedLabel]);
   if (fingerprint === renderFingerprint) return;
   renderFingerprint = fingerprint;
 
   const targets = snapshot.targets;
+  const autoStartCount = targets.filter((target) => target.startupPolicy === "auto").length;
+  const visibleTargets = targetFilter === "auto"
+    ? targets.filter((target) => target.startupPolicy === "auto")
+    : targets;
   document.querySelector("#count-ready").textContent = targets.filter((target) => target.state === "READY").length;
   document.querySelector("#count-degraded").textContent = targets.filter((target) => target.state === "DEGRADED").length;
   document.querySelector("#count-stopped").textContent = targets.filter((target) => target.state === "STOPPED").length;
   document.querySelector("#count-total").textContent = targets.length;
   document.querySelector("#target-count").textContent = `${targets.length} target${targets.length === 1 ? "" : "s"}`;
-  rows.innerHTML = targets.length ? targets.map(targetRow).join("") : `<div class="empty-row">No targets. Add one from “Add target”.</div>`;
+  document.querySelector("#auto-start-count").textContent = `${autoStartCount} auto start`;
+  document.querySelectorAll("[data-target-filter]").forEach((button) => {
+    const active = button.dataset.targetFilter === targetFilter;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  rows.innerHTML = visibleTargets.length
+    ? visibleTargets.map(targetRow).join("")
+    : `<div class="empty-row">${targetFilter === "auto" ? "No Auto Start targets." : "No targets. Add one from “Add target”."}</div>`;
 }
 
 async function refresh({ silent = false } = {}) {
@@ -249,6 +273,25 @@ async function runAction(path, label) {
   }
 }
 
+async function setAutoStart(target, enabled) {
+  const registryTarget = snapshot.registry.targets.find((candidate) => candidate.id === target.id);
+  if (!registryTarget || autoStartBusy.has(target.id)) return;
+  autoStartBusy.add(target.id);
+  renderFingerprint = "";
+  render();
+  try {
+    const updatedTarget = { ...registryTarget, startupPolicy: enabled ? "auto" : "manual" };
+    await api(`/api/targets/${encodeURIComponent(target.id)}`, { method: "PUT", body: JSON.stringify(updatedTarget) });
+    showToast(`Auto Start ${enabled ? "enabled" : "disabled"} for ${target.name}. Applies next time Swibo starts.`);
+  } catch (error) {
+    showToast(error.message, true);
+  } finally {
+    autoStartBusy.delete(target.id);
+    renderFingerprint = "";
+    await refresh({ silent: true });
+  }
+}
+
 function openEditor(target = null) {
   editingId = target?.id || null;
   document.querySelector("#dialog-title").textContent = target ? `Edit ${target.name}` : "Add target";
@@ -263,6 +306,13 @@ document.querySelector("#refresh").addEventListener("click", () => refresh());
 document.querySelector("#start-all").addEventListener("click", () => runAction("/api/start-all", "Start all runtimes completed"));
 document.querySelector("#stop-all").addEventListener("click", () => runAction("/api/stop-all", "Stop all runtimes completed"));
 document.querySelector("#add-target").addEventListener("click", () => openEditor());
+document.querySelector("#target-filters").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-target-filter]");
+  if (!button) return;
+  targetFilter = button.dataset.targetFilter;
+  renderFingerprint = "";
+  render();
+});
 
 rows.addEventListener("click", async (event) => {
   const item = event.target.closest(".target-item[data-id]");
@@ -270,6 +320,11 @@ rows.addEventListener("click", async (event) => {
   if (!id) return;
   const target = snapshot.targets.find((candidate) => candidate.id === id);
   if (!target) return;
+
+  if (event.target.closest("[data-autostart-toggle]")) {
+    await setAutoStart(target, target.startupPolicy !== "auto");
+    return;
+  }
 
   if (event.target.closest("[data-expand-target]")) {
     expandedTargets.has(id) ? expandedTargets.delete(id) : expandedTargets.add(id);
