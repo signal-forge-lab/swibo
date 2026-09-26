@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
-import { validateRegistry } from "../src/registry.js";
+import { RegistryStore, validateRegistry } from "../src/registry.js";
 
 const target = (id = "example") => ({
   id,
@@ -62,4 +65,20 @@ test("validateRegistry rejects malformed component lifecycle", () => {
     () => validateRegistry({ version: 1, targets: [invalid] }),
     /components\.monitor\.lifecycle\.start must be an array/i
   );
+});
+
+test("RegistryStore tolerates a UTF-8 BOM in registry.json", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "swibo-registry-"));
+  try {
+    const registryPath = path.join(root, "registry.json");
+    fs.writeFileSync(
+      registryPath,
+      `\uFEFF${JSON.stringify({ version: 1, targets: [target()] })}`,
+      "utf8"
+    );
+    const store = new RegistryStore({ defaultPath: registryPath, registryPath });
+    assert.equal(store.load().targets[0].id, "example");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

@@ -119,7 +119,8 @@ export class RegistryStore {
   }
 
   load() {
-    return validateRegistry(JSON.parse(fs.readFileSync(this.registryPath, "utf8")));
+    const text = fs.readFileSync(this.registryPath, "utf8").replace(/^\uFEFF/, "");
+    return validateRegistry(JSON.parse(text));
   }
 
   save(registry) {
