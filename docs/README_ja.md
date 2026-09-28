@@ -80,6 +80,41 @@ Registry 内で Swibo の platform 固有 state 領域を参照する場合は `
 
 実サービスは UI / API から live registry に追加してください。端末固有パスや認証情報を `config/config.example.json` にコミットしない運用を推奨します。
 
+### MCPではないCLI / daemonツール
+
+SwiboはMCP ServerでないローカルAIユーティリティも、決定的なlifecycleと副作用のないreadiness checkを持つ場合は監督できます。製品固有の処理は対象ツール側に残し、Swiboはprocess lifecycleと状態観測だけを担当します。
+
+たとえばBrowserSkillは、foreground daemonをdetachedなowned processとして起動し、loopbackのWebSocket portで状態確認し、停止にはBrowserSkill自身のstop commandを使うTargetとして表現できます。
+
+```json
+{
+  "id": "browser-skill",
+  "name": "BrowserSkill",
+  "enabled": true,
+  "startupPolicy": "auto",
+  "lifecycle": {
+    "start": [{
+      "command": "${HOME}/.local/bin/bsk.exe",
+      "args": ["daemon", "start", "--foreground"],
+      "detached": true,
+      "processKey": "server",
+      "unlessReady": "server",
+      "waitFor": "server"
+    }],
+    "stop": [
+      { "command": "${HOME}/.local/bin/bsk.exe", "args": ["daemon", "stop"] },
+      { "kind": "terminate", "processKey": "server" }
+    ]
+  },
+  "checks": {
+    "server": { "type": "tcp", "host": "127.0.0.1", "port": 52800 },
+    "tunnel": { "type": "none" }
+  }
+}
+```
+
+これはlifecycle管理用Targetであり、MCP宣言ではありません。Browser extensionの導入やブラウザ権限確認はSwiboの責務外です。
+
 ## Git とローカル / 非公開データ
 
 Swibo では、開発工程と公開可否を別の責務として管理します。

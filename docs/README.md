@@ -80,6 +80,41 @@ Registry paths may use `${SWIBO_STATE_HOME}` when they need to live beside Swibo
 
 Configure real services in the live registry through the UI/API instead of committing workstation-specific paths or credentials.
 
+### Non-MCP CLI/daemon tools
+
+Swibo can supervise local AI utilities that are not MCP servers when they expose a deterministic lifecycle and a side-effect-free readiness check. Keep product-specific behavior in the tool itself; Swibo should only own process lifecycle and observation.
+
+For example, BrowserSkill can be represented by starting its foreground daemon as a detached owned process, checking its loopback WebSocket port, and using the tool's own stop command:
+
+```json
+{
+  "id": "browser-skill",
+  "name": "BrowserSkill",
+  "enabled": true,
+  "startupPolicy": "auto",
+  "lifecycle": {
+    "start": [{
+      "command": "${HOME}/.local/bin/bsk.exe",
+      "args": ["daemon", "start", "--foreground"],
+      "detached": true,
+      "processKey": "server",
+      "unlessReady": "server",
+      "waitFor": "server"
+    }],
+    "stop": [
+      { "command": "${HOME}/.local/bin/bsk.exe", "args": ["daemon", "stop"] },
+      { "kind": "terminate", "processKey": "server" }
+    ]
+  },
+  "checks": {
+    "server": { "type": "tcp", "host": "127.0.0.1", "port": 52800 },
+    "tunnel": { "type": "none" }
+  }
+}
+```
+
+This is a lifecycle target, not an MCP declaration. Browser extension installation and browser permission prompts remain outside Swibo.
+
 ## Git and local/private data
 
 Swibo keeps development flow and confidentiality as separate concerns:
