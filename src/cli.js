@@ -62,7 +62,7 @@ async function main() {
     throw new Error("Usage: mcpctl daemon start|stop|status");
   }
   if (command === "status") {
-    const value = await request("/api/status");
+    const value = await request("/api/refresh", { method: "POST" });
     const targets = arg ? value.targets.filter((target) => target.id === arg) : value.targets;
     printStatus(targets);
     return;

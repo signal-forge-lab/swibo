@@ -109,3 +109,15 @@ test("Auto Start changes reuse target PUT and do not invoke lifecycle actions", 
   const body = js.match(/async function setAutoStart[\s\S]*?\n\}/)?.[0] || "";
   assert.doesNotMatch(body, /\/start|\/stop|\/restart|runAction/);
 });
+
+test("dashboard uses explicit refresh plus SSE instead of periodic polling", () => {
+  assert.match(js, /new EventSource\("\/api\/events"\)/);
+  assert.match(js, /api\("\/api\/refresh", \{ method: "POST" \}\)/);
+  assert.doesNotMatch(js, /setInterval\(/);
+  assert.match(js, /visibilitychange/);
+});
+
+test("target details render each target's own last health-check timestamp", () => {
+  assert.match(js, /target\.checkedAt/);
+  assert.doesNotMatch(js, /lastCheckedLabel/);
+});

@@ -14,9 +14,9 @@ let refreshing = false;
 let actionBusy = false;
 let targetFilter = "all";
 let renderFingerprint = "";
-let lastCheckedLabel = "—";
 let openMenuTarget = null;
 let toastTimer;
+let eventSource;
 const expandedTargets = new Set();
 const autoStartBusy = new Set();
 
@@ -184,7 +184,7 @@ function targetDetail(target) {
       <div class="detail-block">
         <div class="detail-title"><strong>Target details</strong></div>
         <div class="meta-line"><span>Startup</span><strong>${escapeHtml(target.startupPolicy || "manual")}</strong></div>
-        <div class="meta-line"><span>Last check</span><strong class="mono">${escapeHtml(lastCheckedLabel)}</strong></div>
+        <div class="meta-line"><span>Last check</span><strong class="mono">${escapeHtml(formatTimestamp(target.checkedAt))}</strong></div>
         <div class="meta-line"><span>Target ID</span><strong class="mono">${escapeHtml(target.id)}</strong></div>
       </div>
     </div>
@@ -213,7 +213,7 @@ function render() {
   const validIds = new Set(snapshot.targets.map((target) => target.id));
   for (const id of expandedTargets) if (!validIds.has(id)) expandedTargets.delete(id);
   if (openMenuTarget && !validIds.has(openMenuTarget)) openMenuTarget = null;
-  const fingerprint = JSON.stringify([snapshot.targets, [...expandedTargets].sort(), openMenuTarget, actionBusy, targetFilter, [...autoStartBusy].sort(), lastCheckedLabel]);
+  const fingerprint = JSON.stringify([snapshot.targets, [...expandedTargets].sort(), openMenuTarget, actionBusy, targetFilter, [...autoStartBusy].sort(), snapshot.updatedAt]);
   if (fingerprint === renderFingerprint) return;
   renderFingerprint = fingerprint;
 
@@ -238,16 +238,27 @@ function render() {
     : `<div class="empty-row">${targetFilter === "auto" ? "No Auto Start targets." : "No targets. Add one from “Add target”."}</div>`;
 }
 
+function formatTimestamp(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function applySnapshot(value) {
+  snapshot = value;
+  connection.dataset.state = "ready";
+  connectionLabel.textContent = "Daemon connected";
+  updated.textContent = snapshot.updatedAt ? `Updated ${formatTimestamp(snapshot.updatedAt)}` : "Waiting for fresh check";
+  renderFingerprint = "";
+  render();
+}
+
 async function refresh({ silent = false } = {}) {
   if (refreshing) return;
   refreshing = true;
   try {
-    snapshot = await api("/api/status");
-    lastCheckedLabel = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    connection.dataset.state = "ready";
-    connectionLabel.textContent = "Daemon connected";
-    updated.textContent = `Updated ${lastCheckedLabel}`;
-    render();
+    applySnapshot(await api("/api/refresh", { method: "POST" }));
   } catch (error) {
     connection.dataset.state = "error";
     connectionLabel.textContent = "Daemon unavailable";
@@ -255,6 +266,36 @@ async function refresh({ silent = false } = {}) {
   } finally {
     refreshing = false;
   }
+}
+
+async function syncCachedStatus({ silent = true } = {}) {
+  try {
+    applySnapshot(await api("/api/status"));
+  } catch (error) {
+    connection.dataset.state = "error";
+    connectionLabel.textContent = "Daemon unavailable";
+    if (!silent) showToast(error.message, true);
+  }
+}
+
+function connectStatusEvents() {
+  eventSource?.close();
+  eventSource = new EventSource("/api/events");
+  eventSource.addEventListener("status", (event) => {
+    try {
+      applySnapshot(JSON.parse(event.data));
+    } catch {
+      // Ignore malformed event payloads; the next explicit refresh remains authoritative.
+    }
+  });
+  eventSource.addEventListener("open", () => {
+    connection.dataset.state = "ready";
+    connectionLabel.textContent = "Daemon connected";
+  });
+  eventSource.addEventListener("error", () => {
+    connection.dataset.state = "error";
+    connectionLabel.textContent = "Daemon reconnecting";
+  });
 }
 
 async function runAction(path, label) {
@@ -269,7 +310,7 @@ async function runAction(path, label) {
   } finally {
     actionBusy = false;
     renderFingerprint = "";
-    await refresh({ silent: true });
+    await syncCachedStatus();
   }
 }
 
@@ -288,7 +329,7 @@ async function setAutoStart(target, enabled) {
   } finally {
     autoStartBusy.delete(target.id);
     renderFingerprint = "";
-    await refresh({ silent: true });
+    await syncCachedStatus();
   }
 }
 
@@ -359,7 +400,7 @@ rows.addEventListener("click", async (event) => {
       try {
         await api(`/api/targets/${encodeURIComponent(id)}`, { method: "DELETE" });
         showToast("Target removed");
-        await refresh();
+        await syncCachedStatus({ silent: false });
       } catch (error) {
         showToast(error.message, true);
       }
@@ -414,7 +455,7 @@ document.querySelector("#save-target").addEventListener("click", async () => {
     await api(path, { method: editingId ? "PUT" : "POST", body: JSON.stringify(target) });
     dialog.close();
     showToast(editingId ? "Target updated" : "Target added");
-    await refresh();
+    await syncCachedStatus({ silent: false });
   } catch (error) {
     editorError.textContent = error.message;
   }
@@ -427,7 +468,7 @@ deleteButton.addEventListener("click", async () => {
     await api(`/api/targets/${encodeURIComponent(editingId)}`, { method: "DELETE" });
     dialog.close();
     showToast("Target removed");
-    await refresh();
+    await syncCachedStatus({ silent: false });
   } catch (error) {
     editorError.textContent = error.message;
   }
@@ -437,5 +478,5 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) refresh({ silent: true });
 });
 
+connectStatusEvents();
 refresh();
-setInterval(() => { if (!document.hidden) refresh({ silent: true }); }, 3000);

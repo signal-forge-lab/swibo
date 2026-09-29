@@ -18,6 +18,24 @@ Targets are not limited to MCP servers. A local AI utility may be represented wh
 
 Real workstation targets belong in the live registry. Keep `config/config.example.json` generic and safe to publish.
 
+## Status and monitoring contract
+
+Swibo is a control layer, not a continuous health-monitoring system.
+
+- `GET /api/status` returns the daemon's cached status snapshot and must not trigger target checks.
+- `POST /api/refresh` performs an explicit fresh sweep of all registered targets and updates the cache.
+- `GET /api/events` is a loopback-only Server-Sent Events stream that publishes cached status changes.
+  Do not add polling or heartbeat timers merely to keep this stream busy.
+- The dashboard performs fresh checks on initial load, explicit Refresh, and when the window becomes
+  visible again. It must not periodically poll health while sitting idle.
+- Start/Stop/Restart operations update cached state from their lifecycle verification. Registry
+  mutations refresh only the affected target when a check is needed.
+- `mcpctl status` is intentionally fresh and therefore uses `POST /api/refresh`.
+- Do not infer service state from a lifecycle wrapper process exiting. Many wrappers start or
+  control an independently running service; configured health checks remain authoritative.
+- Continuous external-service monitoring belongs in the managed service's own monitor/observability
+  layer, not in Swibo's idle loop.
+
 ## Target contract
 
 Each target uses this shape:

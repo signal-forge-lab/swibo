@@ -6,10 +6,14 @@ import path from "node:path";
 import { createRuntime } from "./runtime.js";
 import { allowedLoopbackRequest, securityHeaders } from "./http-policy.js";
 import { stateRoot } from "./paths.js";
+import { StatusCache } from "./status-cache.js";
 
 const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.MCP_SUPERVISOR_PORT || "17991", 10);
 const runtime = createRuntime();
+const statusCache = new StatusCache(runtime.supervisor.registry);
+const eventClients = new Set();
+let refreshAllInFlight = null;
 const uiRoot = path.join(runtime.projectRoot, "ui");
 const iconPath = path.join(runtime.projectRoot, "assets", "swibo-icon.png");
 const iconBody = fs.readFileSync(iconPath);
@@ -32,6 +36,91 @@ function sendJson(res, status, value) {
     "cache-control": "no-store"
   });
   res.end(body);
+}
+
+function publishStatus() {
+  const body = `event: status\ndata: ${JSON.stringify(statusCache.snapshot())}\n\n`;
+  for (const client of eventClients) {
+    try {
+      client.write(body);
+    } catch {
+      eventClients.delete(client);
+    }
+  }
+}
+
+function updateCachedTarget(status) {
+  const snapshot = statusCache.upsert(status);
+  publishStatus();
+  return snapshot;
+}
+
+async function cacheBatchResults(results, targetIds) {
+  const checkedAt = new Date().toISOString();
+  let changed = false;
+  for (let index = 0; index < results.length; index += 1) {
+    const result = results[index];
+    if (result?.ok && result.value) {
+      statusCache.upsert(result.value, checkedAt);
+      changed = true;
+    } else if (targetIds[index]) {
+      await refreshTargetStatusSafe(targetIds[index]);
+    }
+  }
+  if (changed) publishStatus();
+}
+
+async function refreshTargetStatus(id) {
+  const status = await runtime.supervisor.status(id);
+  updateCachedTarget(status);
+  return status;
+}
+
+async function refreshTargetStatusSafe(id) {
+  try {
+    return await refreshTargetStatus(id);
+  } catch (error) {
+    appendEvent("status_refresh_error", { id, error: error.message });
+    return null;
+  }
+}
+
+async function refreshAllStatus() {
+  if (refreshAllInFlight) return refreshAllInFlight;
+  let task;
+  task = (async () => {
+    try {
+      const targets = await runtime.supervisor.statusAll();
+      const snapshot = statusCache.replaceAll(targets);
+      publishStatus();
+      return snapshot;
+    } finally {
+      if (refreshAllInFlight === task) refreshAllInFlight = null;
+    }
+  })();
+  refreshAllInFlight = task;
+  return task;
+}
+
+async function refreshAllStatusSafe() {
+  try {
+    return await refreshAllStatus();
+  } catch (error) {
+    appendEvent("status_refresh_error", { error: error.message });
+    return statusCache.snapshot();
+  }
+}
+
+function openEventStream(req, res) {
+  res.writeHead(200, {
+    ...securityHeaders(),
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache",
+    connection: "keep-alive"
+  });
+  eventClients.add(res);
+  res.write(`event: status\ndata: ${JSON.stringify(statusCache.snapshot())}\n\n`);
+  req.once("close", () => eventClients.delete(res));
 }
 
 function readJson(req) {
@@ -72,34 +161,51 @@ function serveBinary(res, body, contentType) {
 
 async function handleApi(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/status") {
-    const targets = await runtime.supervisor.statusAll();
-    return sendJson(res, 200, { targets, registry: runtime.supervisor.registry });
+    return sendJson(res, 200, statusCache.snapshot());
+  }
+  if (req.method === "POST" && url.pathname === "/api/refresh") {
+    return sendJson(res, 200, await refreshAllStatus());
+  }
+  if (req.method === "GET" && url.pathname === "/api/events") {
+    openEventStream(req, res);
+    return;
   }
   if (req.method === "GET" && url.pathname === "/api/health") {
     return sendJson(res, 200, { ok: true, pid: process.pid });
   }
   if (req.method === "POST" && url.pathname === "/api/start-all") {
+    const targets = runtime.supervisor.registry.targets.filter((target) => target.enabled !== false);
     const results = await runtime.supervisor.startAll();
+    await cacheBatchResults(results, targets.map((target) => target.id));
     appendEvent("start_all", { results });
     return sendJson(res, 200, { results });
   }
   if (req.method === "POST" && url.pathname === "/api/stop-all") {
+    const targets = [...runtime.supervisor.registry.targets].reverse().filter((target) => target.enabled !== false);
     const results = await runtime.supervisor.stopAll();
+    await cacheBatchResults(results, targets.map((target) => target.id));
     appendEvent("stop_all", { results });
     return sendJson(res, 200, { results });
   }
   if (req.method === "POST" && url.pathname === "/api/shutdown") {
     sendJson(res, 202, { ok: true });
-    setImmediate(() => server.close(() => process.exit(0)));
+    setImmediate(() => shutdown("api"));
     return;
   }
 
   const actionMatch = url.pathname.match(/^\/api\/targets\/([^/]+)\/(start|stop|restart)$/);
   if (req.method === "POST" && actionMatch) {
-    const [, id, action] = actionMatch;
-    const status = await runtime.supervisor[action](decodeURIComponent(id));
-    appendEvent(`target_${action}`, { id: decodeURIComponent(id), state: status.state });
-    return sendJson(res, 200, status);
+    const [, rawId, action] = actionMatch;
+    const id = decodeURIComponent(rawId);
+    try {
+      const status = await runtime.supervisor[action](id);
+      updateCachedTarget(status);
+      appendEvent(`target_${action}`, { id, state: status.state });
+      return sendJson(res, 200, status);
+    } catch (error) {
+      await refreshTargetStatusSafe(id);
+      throw error;
+    }
   }
   const componentActionMatch = url.pathname.match(/^\/api\/targets\/([^/]+)\/components\/([^/]+)\/(start|stop|restart)$/);
   if (req.method === "POST" && componentActionMatch) {
@@ -107,14 +213,21 @@ async function handleApi(req, res, url) {
     const id = decodeURIComponent(rawId);
     const component = decodeURIComponent(rawComponent);
     const method = action === "start" ? "startComponent" : action === "stop" ? "stopComponent" : "restartComponent";
-    const status = await runtime.supervisor[method](id, component);
-    appendEvent(`target_component_${action}`, { id, component, state: status.state });
-    return sendJson(res, 200, status);
+    try {
+      const status = await runtime.supervisor[method](id, component);
+      await refreshTargetStatus(id);
+      appendEvent(`target_component_${action}`, { id, component, state: status.state });
+      return sendJson(res, 200, status);
+    } catch (error) {
+      await refreshTargetStatusSafe(id);
+      throw error;
+    }
   }
   if (req.method === "POST" && url.pathname === "/api/targets") {
     const target = await readJson(req);
     runtime.store.add(target);
-    runtime.reload();
+    statusCache.setRegistry(runtime.reload());
+    await refreshTargetStatus(target.id);
     appendEvent("target_add", { id: target.id });
     return sendJson(res, 201, target);
   }
@@ -123,14 +236,16 @@ async function handleApi(req, res, url) {
     const id = decodeURIComponent(targetMatch[1]);
     const target = await readJson(req);
     runtime.store.update(id, target);
-    runtime.reload();
+    statusCache.setRegistry(runtime.reload());
+    await refreshTargetStatus(target.id);
     appendEvent("target_update", { id, nextId: target.id });
     return sendJson(res, 200, target);
   }
   if (targetMatch && req.method === "DELETE") {
     const id = decodeURIComponent(targetMatch[1]);
     runtime.store.remove(id);
-    runtime.reload();
+    statusCache.setRegistry(runtime.reload());
+    publishStatus();
     appendEvent("target_remove", { id });
     return sendJson(res, 200, { ok: true });
   }
@@ -163,11 +278,14 @@ server.listen(PORT, HOST, async () => {
     const results = await runtime.supervisor.startAll({ autoOnly: true });
     appendEvent("auto_start", { results });
   }
+  await refreshAllStatusSafe();
 });
 
 function shutdown(signal) {
   appendEvent("daemon_stop", { signal });
   fs.rmSync(pidPath, { force: true });
+  for (const client of eventClients) client.end();
+  eventClients.clear();
   server.close(() => process.exit(0));
 }
 
