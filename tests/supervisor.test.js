@@ -154,6 +154,51 @@ test("component lifecycle is independent from target readiness", async () => {
   assert.deepEqual(calls, ["monitor-start", "monitor-stop"]);
 });
 
+test("status clears a stale target error after the target has recovered to READY", async () => {
+  const readiness = { server: true, tunnel: true };
+  const supervisor = new Supervisor({
+    registry: { version: 1, targets: [exampleTarget] },
+    runCheck: async (spec) => ({ ready: readiness[spec.key], detail: spec.key })
+  });
+
+  supervisor.lastErrors.set("example", "startup failed earlier");
+  const status = await supervisor.status("example");
+
+  assert.equal(status.state, "READY");
+  assert.equal(status.error, "");
+  assert.equal(supervisor.lastErrors.has("example"), false);
+});
+
+test("status keeps a target error while the target has not recovered", async () => {
+  const readiness = { server: false, tunnel: false };
+  const supervisor = new Supervisor({
+    registry: { version: 1, targets: [exampleTarget] },
+    runCheck: async (spec) => ({ ready: readiness[spec.key], detail: spec.key })
+  });
+
+  supervisor.lastErrors.set("example", "startup failed earlier");
+  const status = await supervisor.status("example");
+
+  assert.equal(status.state, "STOPPED");
+  assert.equal(status.error, "startup failed earlier");
+});
+
+test("component status clears a stale error after the component recovers", async () => {
+  const readiness = { monitor: true };
+  const supervisor = new Supervisor({
+    registry: { version: 1, targets: [exampleTarget] },
+    runCheck: async (spec) => ({ ready: readiness[spec.key] ?? true, detail: spec.key })
+  });
+
+  const key = supervisor.componentOperationKey("example", "monitor");
+  supervisor.componentErrors.set(key, "monitor startup failed earlier");
+  const status = await supervisor.checkComponent(exampleTarget, "monitor");
+
+  assert.equal(status.state, "READY");
+  assert.equal(status.error, "");
+  assert.equal(supervisor.componentErrors.has(key), false);
+});
+
 test("statusAll coalesces concurrent callers and bounds target-check fanout", async () => {
   const targets = Array.from({ length: 6 }, (_, index) => ({
     id: `target-${index}`,

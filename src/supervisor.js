@@ -86,6 +86,9 @@ export class Supervisor {
     const check = await this.runCheck(component.check);
     const operationKey = this.componentOperationKey(target.id, key);
     const operation = includeOperation ? this.componentOperations.get(operationKey) : undefined;
+    if (!operation && check.ready) {
+      this.componentErrors.delete(operationKey);
+    }
     return {
       key,
       label: component.label || key,
@@ -103,12 +106,16 @@ export class Supervisor {
       Promise.all(componentEntries.map(async ([key]) => [key, await this.checkComponent(target, key, { includeOperation })]))
     ]);
     const operation = includeOperation ? this.operations.get(target.id) : undefined;
+    const stableState = deriveTargetState({ server, tunnel });
+    if (!operation && stableState === "READY") {
+      this.lastErrors.delete(target.id);
+    }
     return {
       id: target.id,
       name: target.name,
       enabled: target.enabled !== false,
       startupPolicy: target.startupPolicy || "manual",
-      state: operation || deriveTargetState({ server, tunnel }),
+      state: operation || stableState,
       server,
       tunnel,
       components: Object.fromEntries(componentResults),
