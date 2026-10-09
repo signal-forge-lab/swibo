@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "unified-events",
+  "description": "Allow the single local shell to receive Swibo status events.",
+  "windows": ["main"],
+  "permissions": ["core:event:allow-listen"]
+}

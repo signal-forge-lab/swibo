@@ -37,11 +37,26 @@
   .module-card .meta{color:#9aa6ad;font-size:12px;margin:7px 0 12px}
   .module-card .actions{flex-wrap:wrap}
   .module-card button{padding:4px 10px}
+  .launcher-filter{display:flex;align-items:center;gap:10px}
+  .launcher-filter input{width:min(340px,100%);border:1px solid #465059;border-radius:6px;background:#1d2227;color:inherit;padding:9px 12px}
+  .module-card{display:flex;flex-direction:column;gap:6px;min-height:0}
+  .module-card .meta{margin:0 0 6px}
+  .module-card .pin{color:#d8a84d}
+  .module-card.selected{border-color:#7295ae;background:#212930}
+  .module-card .select-module{border:0;text-align:left;background:transparent;padding:0;min-height:24px;font-weight:600}
+  .module-stage{border:1px solid #30373d;border-radius:8px;padding:18px;margin-top:14px}
+  .module-stage h3{font-size:17px;margin:0 0 8px}
+  .module-stage .section{margin:18px 0 0}
+  .module-stage h4{font-size:12px;font-weight:650;color:#a7b2b7;margin:0 0 8px}
+  .module-stage .fact{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #30373d;padding:8px 0}
+  .module-stage .fact span:last-child{text-align:right}
+  .module-stage .issue{color:#ed7871;white-space:pre-wrap}
+  .module-stage .actions{flex-wrap:wrap}
   @media(max-width:760px){.row{grid-template-columns:minmax(120px,1.4fr) 85px 60px 110px;gap:6px;padding:12px 5px}.row>.monitor{display:none}main{padding:8px}header{padding:14px}nav{padding:10px}}
 </style>
 </head>
 <body>
-<header><div><h1>SWIBO / LOCTL</h1><div class="hint">単一WebView2 統合プレビュー · 既存アプリは変更しません</div></div><button id="refresh" type="button">更新</button></header>
+<header><div><h1>SWIBO / LOCTL</h1><div class="hint">単一WebView2 統合プレビュー · 既存アプリは変更しません</div></div><div><span id="stream-state" class="hint" role="status">Connecting…</span> <button id="refresh" type="button">更新</button></div></header>
 <nav aria-label="メインタブ">
   <button class="active" id="runtime-tab" aria-current="page">Runtimes</button>
   <button id="launcher-tab">Launcher</button>
@@ -54,9 +69,10 @@
 <p class="foot">Swiboの既存APIを使用。詳細編集は従来アプリで利用できます。</p>
 </section>
 <section id="launcher-panel" hidden>
-  <h2>Launcher</h2>
+  <div class="launcher-filter"><h2>Launcher</h2><input id="module-search" type="search" placeholder="Search modules…" aria-label="Search modules"></div>
   <p class="foot">Loctlの既存モジュール登録情報・アダプターを、別WebView2を起動せず読み取ります。</p>
   <div id="modules" class="module-list"></div>
+  <div id="module-stage" class="module-stage" hidden aria-live="polite"></div>
 </section>
 </main>
 <script>
@@ -65,14 +81,19 @@ const api = globalThis.__TAURI__?.core?.invoke;
 const targets = document.querySelector("#targets");
 const error = document.querySelector("#error");
 const refreshButton = document.querySelector("#refresh");
+const streamState = document.querySelector("#stream-state");
 const runtimeTab = document.querySelector("#runtime-tab");
 const launcherTab = document.querySelector("#launcher-tab");
 const runtimePanel = document.querySelector("#runtime-panel");
 const launcherPanel = document.querySelector("#launcher-panel");
 const modules = document.querySelector("#modules");
+const moduleSearch = document.querySelector("#module-search");
+const moduleStage = document.querySelector("#module-stage");
 let snapshot = { targets: [] };
 let moduleSnapshot = { modules: [], issues: [] };
 const moduleStatuses = new Map();
+const moduleDetails = new Map();
+let selectedModuleId = null;
 let activeView = "runtime";
 let busy = false;
 function button(label, title, action, target, component) {
@@ -142,12 +163,21 @@ async function loctl(kind, moduleId, operation) {
 }
 function renderModules() {
   modules.replaceChildren();
-  for (const m of moduleSnapshot.modules || []) {
+  const query = moduleSearch.value.trim().toLowerCase();
+  const visible = (moduleSnapshot.modules || []).filter(m => m.enabled && (
+    !query || [m.name,m.description,m.id].some(value => String(value||"").toLowerCase().includes(query))
+  )).sort((a,b) => Number(b.pinned)-Number(a.pinned) || (a.order||100)-(b.order||100));
+  for (const m of visible) {
     if (!m.enabled) continue;
     const card = document.createElement("article");
     card.className = "module-card";
-    const name = document.createElement("strong");
-    name.textContent = m.name;
+    card.classList.toggle("selected", m.id === selectedModuleId);
+    const name = document.createElement("button");
+    name.type = "button";
+    name.className = "select-module";
+    name.dataset.moduleSelect = m.id;
+    name.textContent = (m.pinned ? "★ " : "") + m.name;
+    if (m.pinned) name.classList.add("pin");
     const meta = document.createElement("div");
     meta.className = "meta";
     meta.textContent = m.description;
@@ -169,6 +199,57 @@ function renderModules() {
   if (moduleSnapshot.issues?.length) {
     error.textContent = moduleSnapshot.issues.map(issue => issue.message).join("; ");
   }
+  renderModuleStage();
+}
+function section(parent, heading, rows, makeRow) {
+  if (!rows?.length) return;
+  const container = document.createElement("div");
+  container.className = "section";
+  const title = document.createElement("h4");
+  title.textContent = heading;
+  container.append(title);
+  for (const row of rows) container.append(makeRow(row));
+  parent.append(container);
+}
+function fact(label, value, detail="") {
+  const line = document.createElement("div");
+  line.className = "fact";
+  const l = document.createElement("span");
+  l.textContent = String(label ?? "");
+  const r = document.createElement("span");
+  r.textContent = [value,detail].filter(Boolean).join(" · ");
+  line.append(l,r);
+  return line;
+}
+function renderModuleStage() {
+  const selected = moduleSnapshot.modules.find(m => m.id === selectedModuleId && m.enabled);
+  moduleStage.replaceChildren();
+  moduleStage.hidden = !selected;
+  if (!selected) return;
+  const heading = document.createElement("h3");
+  heading.textContent = selected.name;
+  const description = document.createElement("p");
+  description.className = "meta";
+  description.textContent = selected.description;
+  moduleStage.append(heading,description);
+  const detail = moduleDetails.get(selected.id);
+  if (detail?.error) {
+    const issue = document.createElement("p");
+    issue.className = "issue";
+    issue.textContent = detail.error;
+    moduleStage.append(issue);
+  }
+  const payload = detail?.value;
+  moduleStage.append(fact("STATUS", payload?.state || "UNKNOWN", payload?.detail || ""));
+  if (!payload && selected.capabilities.includes("status")) {
+    const refresh = button("Check status", "Check status "+selected.name, "loctl-status", selected.id);
+    moduleStage.append(refresh);
+  }
+  if (payload) {
+    section(moduleStage, "SIGNALS", payload.signals, x => fact(x.label,x.value,x.detail));
+    section(moduleStage, "QUICK VIEW", payload.quickView, x => fact(x.label,x.state,x.detail));
+    section(moduleStage, "RECENT", payload.activity, x => fact(x.timestamp,x.message));
+  }
 }
 async function setView(view) {
   activeView = view;
@@ -180,7 +261,14 @@ async function setView(view) {
   launcherTab.toggleAttribute("aria-current", view === "launcher");
   error.textContent = "";
   if (view === "launcher") {
-    try { moduleSnapshot = await loctl("registry"); renderModules(); }
+    try {
+      moduleSnapshot = await loctl("registry");
+      if (!moduleSnapshot.modules.some(m=>m.enabled && m.id===selectedModuleId)) {
+        selectedModuleId = moduleSnapshot.modules.find(m=>m.enabled && m.pinned)?.id
+          || moduleSnapshot.modules.find(m=>m.enabled)?.id || null;
+      }
+      renderModules();
+    }
     catch (err) { error.textContent = String(err); }
   }
 }
@@ -197,10 +285,42 @@ refreshButton.addEventListener("click", async () => {
   if (activeView === "runtime") await load("refresh");
   else await setView("launcher");
 });
+if (globalThis.__TAURI__?.event?.listen) {
+  globalThis.__TAURI__.event.listen("unified-swibo-status", event => {
+    if (!busy && Array.isArray(event.payload?.targets)) {
+      snapshot = event.payload;
+      render();
+    }
+    streamState.textContent = "Live · " + new Date().toLocaleTimeString();
+  }).then(() => api("unified_swibo_watch")).catch(err => {
+    streamState.textContent = "Disconnected";
+    error.textContent = String(err);
+  });
+} else {
+  streamState.textContent = "No event bridge";
+}
 runtimeTab.addEventListener("click", () => setView("runtime"));
 launcherTab.addEventListener("click", () => setView("launcher"));
+moduleSearch.addEventListener("input", renderModules);
+document.addEventListener("keydown", event => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    setView("launcher").then(() => moduleSearch.focus());
+  }
+});
 modules.addEventListener("click", async event => {
-  const btn = event.target.closest("button[data-action]");
+  const btn = event.target.closest("button[data-action],button[data-module-select]");
+  if (btn?.dataset.moduleSelect) {
+    selectedModuleId = btn.dataset.moduleSelect;
+    renderModules();
+    const module = moduleSnapshot.modules.find(m=>m.id===selectedModuleId);
+    if (module?.capabilities.includes("status") && !moduleDetails.has(selectedModuleId)) {
+      try { moduleDetails.set(selectedModuleId, {value: await loctl("module_status",selectedModuleId)}); }
+      catch (err) { moduleDetails.set(selectedModuleId,{error:String(err)}); }
+      renderModules();
+    }
+    return;
+  }
   if (!btn || busy) return;
   busy = true;
   renderModules();
@@ -211,7 +331,15 @@ modules.addEventListener("click", async event => {
       ? await loctl("module_status", btn.dataset.target)
       : await loctl("module_action", btn.dataset.target, operation);
     moduleStatuses.set(btn.dataset.target, [response.state, response.detail, response.message].filter(Boolean).join(" · ") || "Action completed");
-  } catch (err) { error.textContent = String(err); }
+    moduleDetails.set(btn.dataset.target, {value:response});
+    if (operation !== "status" && moduleSnapshot.modules.find(m=>m.id===btn.dataset.target)?.capabilities.includes("status")) {
+      const refreshed = await loctl("module_status",btn.dataset.target);
+      moduleDetails.set(btn.dataset.target,{value:refreshed});
+    }
+  } catch (err) {
+    moduleDetails.set(btn.dataset.target,{error:String(err)});
+    error.textContent = String(err);
+  }
   finally { busy = false; renderModules(); }
 });
 targets.addEventListener("click", async (event) => {

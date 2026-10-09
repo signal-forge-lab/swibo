@@ -40,3 +40,20 @@
 favorites and navigation); richer action tests and security coverage;
 separate/merged resource benchmarks; optional release and rollback validation.
 Do not retire either standalone GUI on the basis of this preview alone.
+
+## Additional evidence, 2026-10-10
+
+- Launcher now provides module search, pinned-first ordering, selected stage,
+  signals, quick view, recent activity and isolated errors. UI Automation
+  verified search, status lookup and selected module details.
+- Added one persistent Swibo SSE listener in the preview Tauri host and an
+  explicit `core:event:allow-listen` capability. Live daemon refresh updated
+  the preview timestamp without periodic polling or an extra WebView.
+- Added an opt-in launcher `node scripts/launch-unified-preview.mjs`.
+  It validates the Loctl headless RPC protocol before launching; a stale
+  GUI-only Release executable cannot silently be used as the RPC backend.
+- Warm coexistence resource measurements are recorded in
+  `benchmark-warm-20261010.md`; exclusive cold/warm A/B benchmarking remains
+  outstanding.
+- Full source tests and Clippy passed before the additional event-listener
+  capability. Final regression is required again after all changes are saved.

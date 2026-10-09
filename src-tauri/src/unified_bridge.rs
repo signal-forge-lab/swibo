@@ -1,13 +1,61 @@
 use std::{
-    io::{Read, Write},
+    io::{BufRead, BufReader, Read, Write},
     net::{SocketAddr, TcpStream},
     path::Path,
     process::{Command, Stdio},
-    time::Duration,
+    sync::atomic::{AtomicBool, Ordering},
+    thread,
+    time::{Duration, Instant},
 };
+use tauri::Emitter;
 
 const SWIBO: SocketAddr = SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 17991);
 const MAX_RESPONSE: u64 = 2 * 1024 * 1024;
+static STREAM_STARTED: AtomicBool = AtomicBool::new(false);
+
+fn sse_status(line: &str) -> Option<serde_json::Value> {
+    let payload = line.strip_prefix("data:")?.trim();
+    let value: serde_json::Value = serde_json::from_str(payload).ok()?;
+    value.get("targets")?.as_array()?;
+    Some(value)
+}
+
+fn relay_swibo_stream(app: &tauri::AppHandle) -> Result<(), String> {
+    let mut stream = TcpStream::connect_timeout(&SWIBO, Duration::from_secs(2))
+        .map_err(|error| error.to_string())?;
+    stream.write_all(b"GET /api/events HTTP/1.1\r\nHost: 127.0.0.1:17991\r\nAccept: text/event-stream\r\nConnection: close\r\n\r\n")
+        .map_err(|error| error.to_string())?;
+    let mut reader = BufReader::new(stream);
+    let mut status_line = String::new();
+    reader.read_line(&mut status_line).map_err(|error| error.to_string())?;
+    if !status_line.starts_with("HTTP/1.1 200") {
+        return Err("Swibo event endpoint unavailable".into());
+    }
+    loop {
+        let mut line = String::new();
+        let size = reader.read_line(&mut line).map_err(|error| error.to_string())?;
+        if size == 0 { return Err("Swibo event stream ended".into()); }
+        if line.len() > MAX_RESPONSE as usize { return Err("Swibo event too large".into()); }
+        if let Some(snapshot) = sse_status(&line) {
+            let _ = app.emit("unified-swibo-status", snapshot);
+        }
+    }
+}
+
+#[tauri::command]
+pub(crate) fn unified_swibo_watch(app: tauri::AppHandle) -> Result<(), String> {
+    if std::env::var("SWIBO_UNIFIED_PREVIEW").as_deref() != Ok("1") {
+        return Err("Unified preview is disabled".into());
+    }
+    if STREAM_STARTED.swap(true, Ordering::AcqRel) { return Ok(()); }
+    thread::spawn(move || loop {
+        if relay_swibo_stream(&app).is_err() {
+            // Reconnect only when the event stream has actually disconnected.
+            thread::sleep(Duration::from_secs(2));
+        }
+    });
+    Ok(())
+}
 
 fn valid_id(value: &str) -> bool {
     value.len() <= 128
@@ -120,11 +168,33 @@ pub(crate) fn unified_loctl_request(kind: String, module_id: Option<String>, ope
     let data = serde_json::to_vec(&payload).map_err(|error| error.to_string())?;
     child.stdin.take().ok_or("Missing Loctl input pipe")?
         .write_all(&data).map_err(|error| error.to_string())?;
-    let output = child.wait_with_output().map_err(|error| error.to_string())?;
-    if !output.status.success() || output.stdout.len() > MAX_RESPONSE as usize {
+    let stdout = child.stdout.take().ok_or("Missing Loctl output pipe")?;
+    let reader = thread::spawn(move || {
+        let mut output = Vec::new();
+        let result = stdout.take(MAX_RESPONSE + 1).read_to_end(&mut output);
+        result.map(|_| output)
+    });
+    // Loctl adapters can declare a timeout of up to ten minutes. Bound the
+    // surrounding headless process as well, even if it stops responding.
+    let max_seconds = if matches!(kind.as_str(), "registry" | "module_icon") { 15 } else { 660 };
+    let deadline = Instant::now() + Duration::from_secs(max_seconds);
+    let status = loop {
+        match child.try_wait().map_err(|error| error.to_string())? {
+            Some(status) => break status,
+            None if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("Loctl headless runtime timed out".into());
+            }
+            None => thread::sleep(Duration::from_millis(50)),
+        }
+    };
+    let output = reader.join().map_err(|_| "Loctl output reader failed")?
+        .map_err(|error| error.to_string())?;
+    if !status.success() || output.len() as u64 > MAX_RESPONSE {
         return Err("Loctl headless runtime failed or returned too much data".into());
     }
-    String::from_utf8(output.stdout).map_err(|_| "Invalid Loctl UTF-8 output".into())
+    String::from_utf8(output).map_err(|_| "Invalid Loctl UTF-8 output".into())
 }
 
 #[tauri::command]
@@ -158,6 +228,14 @@ mod tests {
         assert!(request_route("component-stop", Some("safe"), Some("../bad")).is_err());
         assert!(request_route("shutdown", None, None).is_err());
         assert!(request_route("stop-all", None, None).is_err());
+    }
+
+    #[test]
+    fn sse_relay_only_accepts_valid_status_snapshots() {
+        assert_eq!(sse_status("data: {\"targets\":[{\"id\":\"x\"}]}\n").unwrap()["targets"][0]["id"], "x");
+        assert!(sse_status("event: status").is_none());
+        assert!(sse_status("data: {\"error\":\"no\"}").is_none());
+        assert!(sse_status("data: invalid").is_none());
     }
 
     #[test]
