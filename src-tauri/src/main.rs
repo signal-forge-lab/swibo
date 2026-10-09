@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod unified_bridge;
+
 use std::{
     env, fs,
     net::{TcpStream, ToSocketAddrs},
@@ -25,20 +27,31 @@ fn main() {
     let root = locate_project_root().unwrap_or_else(|error| panic!("{error}"));
     let dashboard = Url::parse(DASHBOARD_URL).expect("valid dashboard URL");
     let daemon_ready = ensure_daemon(&root, &dashboard);
+    let unified_preview = env::var("SWIBO_UNIFIED_PREVIEW").as_deref() == Ok("1");
     let allowed = dashboard.clone();
-    let initial = if daemon_ready {
+    let initial = if unified_preview {
+        WebviewUrl::App("unified.html".into())
+    } else if daemon_ready {
         WebviewUrl::External(dashboard)
     } else {
         WebviewUrl::App("index.html".into())
     };
 
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            unified_bridge::unified_swibo_request,
+            unified_bridge::unified_swibo_autostart,
+            unified_bridge::unified_loctl_request
+        ])
         .setup(move |app| {
             let mut window = WebviewWindowBuilder::new(app, "main", initial.clone())
-                .title("Swibo")
+                .title(if unified_preview { "Swibo + Loctl Preview" } else { "Swibo" })
                 .inner_size(1320.0, 820.0)
                 .min_inner_size(900.0, 600.0)
-                .on_navigation(move |url| allowed_navigation(url, &allowed))
+                .on_navigation(move |url| {
+                    allowed_navigation(url, &allowed)
+                        || (unified_preview && allowed_preview_navigation(url))
+                })
                 .on_new_window(|_, _| NewWindowResponse::Deny);
             if let Some(icon) = app.default_window_icon() {
                 window = window.icon(icon.clone())?;
@@ -122,6 +135,14 @@ fn allowed_navigation(candidate: &Url, expected: &Url) -> bool {
     same_dashboard || bootstrap
 }
 
+fn allowed_preview_navigation(candidate: &Url) -> bool {
+    let local = ((candidate.scheme() == "http" && candidate.host_str() == Some("tauri.localhost"))
+        || (candidate.scheme() == "tauri" && candidate.host_str() == Some("localhost")))
+        && candidate.username().is_empty()
+        && candidate.password().is_none();
+    local && candidate.path() == "/unified.html"
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,5 +161,13 @@ mod tests {
     fn loopback_url_remains_loopback() {
         let url = Url::parse(DASHBOARD_URL).unwrap();
         assert!(url.host_str().unwrap().parse::<IpAddr>().unwrap().is_loopback());
+    }
+
+    #[test]
+    fn unified_preview_navigation_is_local_and_path_scoped() {
+        assert!(allowed_preview_navigation(&Url::parse("http://tauri.localhost/unified.html").unwrap()));
+        assert!(allowed_preview_navigation(&Url::parse("tauri://localhost/unified.html").unwrap()));
+        assert!(!allowed_preview_navigation(&Url::parse("https://example.com/unified.html").unwrap()));
+        assert!(!allowed_preview_navigation(&Url::parse("http://tauri.localhost/evil.html").unwrap()));
     }
 }

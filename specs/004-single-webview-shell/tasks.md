@@ -4,10 +4,11 @@
       WebView2 owner groups, and current unified HTML prototype.
 - [x] T002 Document the single-WebView2 contract, origin/security boundaries,
       acceptance tests, and rollback requirements.
-- [ ] T003 Create opt-in merged local-origin frontend entry point with one
+- [x] T003 Create opt-in merged local-origin frontend entry point with one
       WebView and a restricted Swibo daemon command bridge.
-- [ ] T004 Extract/reuse the Loctl Rust module runtime in the merged host;
-      preserve user registry and process-json-v1 semantics.
+- [x] T004 Reuse the existing Loctl Rust module runtime via bounded headless
+      one-shot JSON dispatch; preserve registry and process-json-v1 semantics
+      without a second permanent WebView2.
 - [ ] T005 Wire the merged dashboard's real Runtime / Auto-start / Monitor
       and Launcher / Favorites / Module flows into the live services.
 - [ ] T006 Unit/integration tests for action parity, module failure isolation,
@@ -17,5 +18,25 @@
 - [ ] T008 Roll out behind opt-in launcher, validate on Windows, and keep
       rollback paths until explicit cutover approval.
 
-**Current status:** Specification and design complete. Runtime integration,
-test gates and rollout remain open.
+## Verification evidence, 2026-10-10
+
+- Swibo standalone remains the default launch; preview requires
+  `SWIBO_UNIFIED_PREVIEW=1`. Rust IPC commands reject calls outside preview.
+- Preview uses local `unified.html`; the existing Swibo dashboard origin,
+  Host/Origin policy, CSP and frame-denial headers are unchanged.
+- The Loctl source now supports `--headless-rpc` via a bounded, strict JSON
+  request to the same registry/adapter functions as the original native GUI.
+  The preview requires `SWIBO_UNIFIED_LOCTL_EXE` pointing to the built Loctl
+  executable. No additional persistent Loctl window is launched.
+- Swibo Node 59/59, Rust 7/7, clippy clean; Loctl Node 24/24, Rust
+  14/14, clippy clean.
+- Win32 UI Automation on opt-in preview: Runtimes showed 17 actual daemon
+  targets; Launcher showed 7 registered Loctl modules; invoking `status
+  Swibo` displayed `READY · 13/17 targets ready`.
+- Test preview PID was closed after inspection; the normal Swibo GUI,
+  standalone Loctl GUI, and Swibo daemon remained alive.
+
+**Remaining:** Production-grade UI parity (detailed editor, all module views,
+favorites and navigation); richer action tests and security coverage;
+separate/merged resource benchmarks; optional release and rollback validation.
+Do not retire either standalone GUI on the basis of this preview alone.

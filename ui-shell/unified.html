@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Swibo + Loctl Preview</title>
+<style>
+  :root{font-family:"Segoe UI Variable","Segoe UI",system-ui,sans-serif;color-scheme:dark;color:#f1efe8;background:#0d0f11}
+  *{box-sizing:border-box}
+  body{margin:0;font-size:14px}
+  button{font:inherit;cursor:pointer;color:inherit}
+  button:disabled{opacity:.35;cursor:default}
+  header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:17px 22px;border-bottom:1px solid #30373d;background:#121518}
+  h1{font-size:18px;font-weight:650;letter-spacing:.02em;margin:0}
+  .hint{font-size:12px;color:#9aa6ad;margin-top:5px}
+  nav{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:auto;padding:12px 22px;border-bottom:1px solid #30373d}
+  nav button{border:1px solid transparent;border-radius:6px;background:none;white-space:nowrap;padding:8px 18px}
+  nav button.active{background:#242a30;border-color:#465059}
+  main{padding:22px;max-width:1500px;margin:auto}
+  .row{display:grid;grid-template-columns:minmax(170px,1.5fr) minmax(110px,.65fr) 80px 140px minmax(140px,.85fr);align-items:center;gap:16px;padding:12px 14px;border-bottom:1px solid #30373d}
+  .row:nth-child(even){background:#121518}
+  .head{color:#9aa6ad;font-size:12px;font-weight:600;border-top:1px solid #30373d}
+  .row strong{font-size:14px;font-weight:600}
+  .row small{display:block;color:#9aa6ad;margin-top:4px;overflow:hidden;text-overflow:ellipsis}
+  .lamp{display:inline-block;width:7px;height:7px;border-radius:50%;background:#8b959d;margin-right:8px}
+  .ready .lamp{background:#65c394}.degraded .lamp{background:#e4ac4f}
+  .actions{display:flex;gap:4px}.actions button{border:1px solid #465059;border-radius:5px;background:#1d2227;min-width:34px;min-height:31px}
+  .actions button:hover:not(:disabled){background:#30373d}
+  .autostart{color:#d8a84d;font-weight:600}
+  .autostart-toggle{border:1px solid #465059;border-radius:6px;background:#1d2227;padding:5px 8px;font-size:12px}
+  #error{min-height:18px;color:#ed7871;margin-bottom:12px}
+  .foot{margin-top:20px;color:#9aa6ad;font-size:12px}
+  #refresh{background:#1d2227;border:1px solid #465059;border-radius:6px;padding:8px 13px}
+  .module-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:16px}
+  .module-card{background:#171b1f;border:1px solid #30373d;border-radius:8px;padding:14px;min-height:110px}
+  .module-card .meta{color:#9aa6ad;font-size:12px;margin:7px 0 12px}
+  .module-card .actions{flex-wrap:wrap}
+  .module-card button{padding:4px 10px}
+  @media(max-width:760px){.row{grid-template-columns:minmax(120px,1.4fr) 85px 60px 110px;gap:6px;padding:12px 5px}.row>.monitor{display:none}main{padding:8px}header{padding:14px}nav{padding:10px}}
+</style>
+</head>
+<body>
+<header><div><h1>SWIBO / LOCTL</h1><div class="hint">単一WebView2 統合プレビュー · 既存アプリは変更しません</div></div><button id="refresh" type="button">更新</button></header>
+<nav aria-label="メインタブ">
+  <button class="active" id="runtime-tab" aria-current="page">Runtimes</button>
+  <button id="launcher-tab">Launcher</button>
+</nav>
+<main>
+<div id="error" role="status" aria-live="polite"></div>
+<section id="runtime-panel">
+<div class="row head"><span>RUNTIME</span><span>STATUS</span><span>AUTO</span><span>OPERATIONS</span><span class="monitor">MONITOR</span></div>
+<div id="targets" aria-live="off"></div>
+<p class="foot">Swiboの既存APIを使用。詳細編集は従来アプリで利用できます。</p>
+</section>
+<section id="launcher-panel" hidden>
+  <h2>Launcher</h2>
+  <p class="foot">Loctlの既存モジュール登録情報・アダプターを、別WebView2を起動せず読み取ります。</p>
+  <div id="modules" class="module-list"></div>
+</section>
+</main>
+<script>
+"use strict";
+const api = globalThis.__TAURI__?.core?.invoke;
+const targets = document.querySelector("#targets");
+const error = document.querySelector("#error");
+const refreshButton = document.querySelector("#refresh");
+const runtimeTab = document.querySelector("#runtime-tab");
+const launcherTab = document.querySelector("#launcher-tab");
+const runtimePanel = document.querySelector("#runtime-panel");
+const launcherPanel = document.querySelector("#launcher-panel");
+const modules = document.querySelector("#modules");
+let snapshot = { targets: [] };
+let moduleSnapshot = { modules: [], issues: [] };
+const moduleStatuses = new Map();
+let activeView = "runtime";
+let busy = false;
+function button(label, title, action, target, component) {
+  const btn = document.createElement("button");
+  btn.textContent = label;
+  btn.title = title;
+  btn.setAttribute("aria-label", title);
+  btn.dataset.action = action;
+  btn.dataset.target = target;
+  if (component) btn.dataset.component = component;
+  return btn;
+}
+function render() {
+  targets.replaceChildren();
+  for (const t of snapshot.targets || []) {
+    const row = document.createElement("article");
+    row.className = "row";
+    const identity = document.createElement("div");
+    const strong = document.createElement("strong");
+    strong.textContent = t.name;
+    const detail = document.createElement("small");
+    detail.textContent = t.id;
+    identity.append(strong, detail);
+    const status = document.createElement("span");
+    status.className = String(t.state || "").toLowerCase();
+    const lamp = document.createElement("span");
+    lamp.className = "lamp";
+    status.append(lamp, document.createTextNode(t.state || "UNKNOWN"));
+    const auto = document.createElement("button");
+    auto.type = "button";
+    auto.className = "autostart-toggle" + (t.startupPolicy === "auto" ? " autostart" : "");
+    auto.dataset.autostartTarget = t.id;
+    auto.setAttribute("role", "switch");
+    auto.setAttribute("aria-checked", String(t.startupPolicy === "auto"));
+    auto.setAttribute("aria-label", "Auto Start for " + t.name);
+    auto.textContent = t.startupPolicy === "auto" ? "ON" : "OFF";
+    auto.disabled = busy || !t.enabled;
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    for (const [kind, label] of [["start","▶"],["stop","■"],["restart","↻"]]) {
+      const btn = button(label, kind+" "+t.name, kind, t.id);
+      btn.disabled = busy || !t.enabled;
+      actions.append(btn);
+    }
+    const monitors = document.createElement("div");
+    monitors.className = "actions monitor";
+    for (const [key, c] of Object.entries(t.components || {})) {
+      if (c.notApplicable) continue;
+      monitors.append(button("▶", "start "+(c.label||key), "component-start", t.id, key));
+      monitors.append(button("■", "stop "+(c.label||key), "component-stop", t.id, key));
+      monitors.append(button("↻", "restart "+(c.label||key), "component-restart", t.id, key));
+    }
+    row.append(identity, status, auto, actions, monitors);
+    targets.append(row);
+  }
+}
+async function request(kind, targetId, component) {
+  if (typeof api !== "function") throw Error("Tauriブリッジに接続できません");
+  const value = await api("unified_swibo_request", { kind, targetId, component });
+  return JSON.parse(value);
+}
+async function loctl(kind, moduleId, operation) {
+  if (typeof api !== "function") throw Error("Tauriブリッジに接続できません");
+  const reply = JSON.parse(await api("unified_loctl_request", {kind, moduleId, operation}));
+  if (!reply.ok) throw Error(reply.error || "Loctl operation failed");
+  return reply.value;
+}
+function renderModules() {
+  modules.replaceChildren();
+  for (const m of moduleSnapshot.modules || []) {
+    if (!m.enabled) continue;
+    const card = document.createElement("article");
+    card.className = "module-card";
+    const name = document.createElement("strong");
+    name.textContent = m.name;
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = m.description;
+    const status = document.createElement("div");
+    status.className = "meta";
+    status.textContent = moduleStatuses.get(m.id) || "Ready to query";
+    status.dataset.status = m.id;
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    for (const operation of ["status","open","start","stop","restart","diagnose","settings"]) {
+      if (!m.capabilities.includes(operation)) continue;
+      const btn = button(operation, operation + " " + m.name, "loctl-"+operation, m.id);
+      btn.disabled = busy;
+      actions.append(btn);
+    }
+    card.append(name, meta, status, actions);
+    modules.append(card);
+  }
+  if (moduleSnapshot.issues?.length) {
+    error.textContent = moduleSnapshot.issues.map(issue => issue.message).join("; ");
+  }
+}
+async function setView(view) {
+  activeView = view;
+  runtimePanel.hidden = view !== "runtime";
+  launcherPanel.hidden = view !== "launcher";
+  runtimeTab.classList.toggle("active", view === "runtime");
+  launcherTab.classList.toggle("active", view === "launcher");
+  runtimeTab.toggleAttribute("aria-current", view === "runtime");
+  launcherTab.toggleAttribute("aria-current", view === "launcher");
+  error.textContent = "";
+  if (view === "launcher") {
+    try { moduleSnapshot = await loctl("registry"); renderModules(); }
+    catch (err) { error.textContent = String(err); }
+  }
+}
+async function load(kind="status") {
+  busy = true;
+  refreshButton.disabled = true;
+  error.textContent = "";
+  try {
+    snapshot = await request(kind);
+  } catch (err) { error.textContent = String(err); }
+  finally { busy = false; refreshButton.disabled = false; render(); }
+}
+refreshButton.addEventListener("click", async () => {
+  if (activeView === "runtime") await load("refresh");
+  else await setView("launcher");
+});
+runtimeTab.addEventListener("click", () => setView("runtime"));
+launcherTab.addEventListener("click", () => setView("launcher"));
+modules.addEventListener("click", async event => {
+  const btn = event.target.closest("button[data-action]");
+  if (!btn || busy) return;
+  busy = true;
+  renderModules();
+  error.textContent = "";
+  try {
+    const operation = btn.dataset.action.replace("loctl-", "");
+    const response = operation === "status"
+      ? await loctl("module_status", btn.dataset.target)
+      : await loctl("module_action", btn.dataset.target, operation);
+    moduleStatuses.set(btn.dataset.target, [response.state, response.detail, response.message].filter(Boolean).join(" · ") || "Action completed");
+  } catch (err) { error.textContent = String(err); }
+  finally { busy = false; renderModules(); }
+});
+targets.addEventListener("click", async (event) => {
+  const btn = event.target.closest("button[data-action],button[data-autostart-target]");
+  if (!btn || busy) return;
+  busy = true;
+  error.textContent = "";
+  render();
+  try {
+    if (btn.dataset.autostartTarget) {
+      const enabled = btn.getAttribute("aria-checked") !== "true";
+      await api("unified_swibo_autostart", {targetId:btn.dataset.autostartTarget, enabled});
+    } else {
+      await request(btn.dataset.action, btn.dataset.target, btn.dataset.component);
+    }
+    snapshot = await request("status");
+  } catch (err) { error.textContent = String(err); }
+  finally { busy = false; render(); }
+});
+load();
+</script>
+</body>
+</html>

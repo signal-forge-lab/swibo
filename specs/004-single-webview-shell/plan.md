@@ -28,10 +28,14 @@ Do not merge their registries or duplicate Loctl's adapter implementation.
    local frontend. Add a strictly typed/allowlisted local command bridge to
    existing Swibo daemon APIs. Do not widen Swibo daemon CORS, Host/Origin or
    framing permissions.
-3. **Reuse Loctl runtime.** Extract only the generic module registry and
-   adapter execution code from Loctl's existing Rust backend into a shared
-   library. Expose validated capability-driven commands to the merged host
-   without introducing module-specific switches or a duplicate interpreter.
+3. **Reuse Loctl runtime.** Extend the existing Loctl binary with a bounded
+   one-shot stdin/stdout JSON mode that calls the same in-process registry,
+   adapter, icon and capability handlers already used by standalone Loctl.
+   The merged host invokes this headless mode on demand through an allowlisted
+   Tauri command; it never launches a second Loctl window or copies Loctl's
+   module interpreter. This keeps the Rust core single-source and allows
+   independent source repos and reversible rollout. No idle polling or extra
+   resident Loctl process is needed.
 4. **Compose one frontend.** Render Swibo and Loctl panels inside one
    JavaScript application and one WebView, with one-row tabs and preserved
    Autostart/Runtime first view. Reuse the checked-in unified mock and design
@@ -59,6 +63,9 @@ Do not merge their registries or duplicate Loctl's adapter implementation.
 The Swibo UI presently loads from an external loopback URL while Loctl loads
 local Tauri assets. Changing this transport affects cookies/origin/API access;
 it requires explicit integration tests rather than simply copying HTML.
+The one-shot Loctl RPC must constrain stdin size and output size and preserve
+the adapter's configured timeout; it must never interpret input as a shell
+command or offer actions outside the existing capability contract.
 
 ## Status
 
