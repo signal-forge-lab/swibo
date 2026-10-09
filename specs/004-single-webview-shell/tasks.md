@@ -13,7 +13,7 @@
       and Launcher / Favorites / Module flows into the live services.
 - [x] T006 Unit/integration tests for action parity, module failure isolation,
       navigation/origin denial, service persistence, and no idle polling.
-- [ ] T007 Run separate-vs-merged measured benchmarks for CPU, memory, GUI
+- [x] T007 Run separate-vs-merged measured benchmarks for CPU, memory, GUI
       startup, process count and action latency, with cold and warm trials.
 - [x] T008 Roll out behind opt-in launcher, validate on Windows, and keep
       rollback paths until explicit cutover approval.
@@ -36,7 +36,7 @@
 - Test preview PID was closed after inspection; the normal Swibo GUI,
   standalone Loctl GUI, and Swibo daemon remained alive.
 
-**Remaining:** Production-grade UI parity (detailed editor, all module views,
+**Remaining at this initial checkpoint:** Production-grade UI parity (detailed editor, all module views,
 favorites and navigation); richer action tests and security coverage;
 separate/merged resource benchmarks; optional release and rollback validation.
 Do not retire either standalone GUI on the basis of this preview alone.
@@ -72,7 +72,7 @@ Do not retire either standalone GUI on the basis of this preview alone.
 - Swibo Node 61/61; Rust 9/9, Clippy clean. Unsafe IDs and unknown registry
   actions are rejected by the bridge; the daemon remains the final registry
   validator. The ordinary standalone GUI retains its preview-disabled gate.
-- T006 remains open for live mutation/action-isolation E2E and security parity.
+- At this earlier checkpoint, T006 remained open for live mutation/action-isolation E2E and security parity.
   The strict exclusive cold/warm benchmark T007 and opt-in release/rollback
   gate T008 have not been completed. Standalone GUI cutover is not approved.
 - A release build attempt failed at replacing the existing
@@ -105,6 +105,23 @@ Do not retire either standalone GUI on the basis of this preview alone.
 - All current non-mutating Windows release smoke and simulated mutation tests
   passed. Actual production registry edits and lifecycle start/stop/restart
   remain intentionally unexecuted against user-managed services.
-- T007 remains open. See `benchmark-coexistence-20261010.md` for the measured
+- At the previous checkpoint, T007 remained open. See `benchmark-coexistence-20261010.md` for the measured
   warm coexistence delta. This does not establish the exclusive A/B savings
   required for a permanent GUI cutover.
+
+## T007 completed: exclusive paired measurements, 2026-10-10
+
+- Three cold/warm paired trials with alternating configuration order were
+  performed by `scripts/benchmark-unified-guis.ps1`. Details and limitations
+  are in `benchmark-exclusive-20261010.md`.
+- The merged GUI averaged 201.49 MB warm Private Bytes vs. 431.14 MB for
+  the two standalone GUIs, with six rather than twelve WebView2 processes.
+  Backend status time was comparable. CPU was measured for GUI process trees.
+- The original minimized GUI processes were gracefully closed for the
+  exclusive run. Both standalone windows were restored with their original
+  executables and the Swibo daemon PID remained unchanged.
+- Window-ready and backend status measurements are useful bounded proxies,
+  not DOM-complete startup or end-to-end native UI action latencies.
+- All eight tasks are implemented/tested at the **opt-in preview** gate.
+  This is **not approval** to retire standalone GUIs or change the default
+  launch; production parity and cutover remain separate decisions.
