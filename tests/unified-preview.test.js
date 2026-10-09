@@ -12,6 +12,8 @@ const launcher = fs.readFileSync(path.join(root, 'scripts', 'launch-unified-prev
 test('unified preview is one local WebView with opt-in-only commands and rollback-safe launcher', () => {
   assert.match(tauri, /WebviewUrl::App\("unified\.html"\.into\(\)\)/);
   assert.match(tauri, /SWIBO_UNIFIED_PREVIEW/);
+  assert.match(tauri, /WindowEvent::Destroyed/);
+  assert.match(tauri, /window\.app_handle\(\)\.exit\(0\)/);
   assert.match(bridge, /Unified preview is disabled/);
   assert.match(bridge, /127\.0\.0\.1:17991/);
   assert.doesNotMatch(html, /<iframe\b|setInterval\s*\(/);
@@ -20,6 +22,9 @@ test('unified preview is one local WebView with opt-in-only commands and rollbac
   assert.match(launcher, /--headless-rpc/);
   assert.match(launcher, /timeout:\s*3000/);
   assert.match(launcher, /response\.ok === true/);
+  assert.match(launcher, /--release/);
+  assert.match(launcher, /CARGO_TARGET_DIR/);
+  assert.match(launcher, /staleBinary/);
   assert.doesNotMatch(launcher, /taskkill|Stop-Process|kill\(/);
 });
 
@@ -35,6 +40,9 @@ test('unified UI covers pinned launcher, selected detail, status facets and auto
   }
   assert.match(html, /unified-swibo-status/);
   assert.match(html, /unified_swibo_watch/);
+  assert.match(html, /module_icon/);
+  assert.match(html, /moduleGlyph/);
+  assert.match(html, /iconSequence/);
   for (const feature of ['target-editor','add-target','save-target','delete-target','expandedTargets','start-all','stop-all','unified_swibo_registry']) {
     assert.ok(html.includes(feature), `Missing target management: ${feature}`);
   }

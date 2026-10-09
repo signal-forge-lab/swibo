@@ -16,7 +16,7 @@ use std::os::windows::process::CommandExt;
 
 use tauri::{
     webview::{NewWindowResponse, Url, WebviewWindowBuilder},
-    WebviewUrl,
+    Manager, WebviewUrl,
 };
 
 const DASHBOARD_URL: &str = "http://127.0.0.1:17991/";
@@ -60,6 +60,16 @@ fn main() {
             }
             window.build()?;
             Ok(())
+        })
+        .on_window_event(move |window, event| {
+            // The opt-in shell owns a persistent SSE relay that holds an
+            // AppHandle. Closing its only window must still terminate the
+            // desktop process; the independently managed daemon keeps running.
+            if unified_preview && window.label() == "main"
+                && matches!(event, tauri::WindowEvent::Destroyed)
+            {
+                window.app_handle().exit(0);
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running Swibo");

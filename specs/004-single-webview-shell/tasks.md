@@ -11,11 +11,11 @@
       without a second permanent WebView2.
 - [x] T005 Wire the merged dashboard's real Runtime / Auto-start / Monitor
       and Launcher / Favorites / Module flows into the live services.
-- [ ] T006 Unit/integration tests for action parity, module failure isolation,
+- [x] T006 Unit/integration tests for action parity, module failure isolation,
       navigation/origin denial, service persistence, and no idle polling.
 - [ ] T007 Run separate-vs-merged measured benchmarks for CPU, memory, GUI
       startup, process count and action latency, with cold and warm trials.
-- [ ] T008 Roll out behind opt-in launcher, validate on Windows, and keep
+- [x] T008 Roll out behind opt-in launcher, validate on Windows, and keep
       rollback paths until explicit cutover approval.
 
 ## Verification evidence, 2026-10-10
@@ -80,3 +80,31 @@ Do not retire either standalone GUI on the basis of this preview alone.
   (OS error 5). The current standalone executable was not terminated or
   replaced. A future isolated release target or a coordinated GUI shutdown
   is needed to complete T008 without disrupting live usage.
+
+## Release and isolation continuation, 2026-10-10
+
+- T006: Native loopback HTTP fixture verifies registry PUT routing and
+  request body with no live registry mutation. Rust tests cover redirects,
+  response length, unsupported transfer encoding, bounded SSE lines, strict
+  target/module IDs, navigation denial, and opt-in boundary. Real Loctl
+  headless integration uses a temporary independent registry with healthy,
+  broken and missing modules; failures do not prevent healthy status calls.
+  No idle timer was introduced, and the Swibo SSE relay remains event-driven.
+- T008: The opt-in `node scripts/launch-unified-preview.mjs --release`
+  builds/starts an independent Release executable under the local Cargo
+  target cache, avoiding the locked standalone executable. Windows native UI
+  verified the 17-target dashboard and Launcher; closing the Release window
+  originally left a background GUI process because the SSE relay held an
+  AppHandle. The unified shell now explicitly exits when its sole main window
+  is destroyed. Recompiled Release was started and closed; the GUI process
+  exited and the separate Swibo daemon PID remained unchanged. Standalone
+  Swibo and Loctl GUIs are retained and remain the rollback path.
+- The unified Launcher now renders module-local icons via existing Loctl RPC.
+  Icon requests are sequenced to bound one-shot process concurrency and avoid
+  adding a burst of short-lived native runtimes.
+- All current non-mutating Windows release smoke and simulated mutation tests
+  passed. Actual production registry edits and lifecycle start/stop/restart
+  remain intentionally unexecuted against user-managed services.
+- T007 remains open. See `benchmark-coexistence-20261010.md` for the measured
+  warm coexistence delta. This does not establish the exclusive A/B savings
+  required for a permanent GUI cutover.

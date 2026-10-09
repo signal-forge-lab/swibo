@@ -51,6 +51,9 @@
   .module-card .meta{margin:0 0 6px}
   .module-card .pin{color:#d8a84d}
   .module-card.selected{border-color:#7295ae;background:#212930}
+  .module-head{display:flex;align-items:center;gap:10px}
+  .module-glyph{display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:7px;background:#263039;color:#cad4d9;font-size:11px;overflow:hidden}
+  .module-glyph img{width:100%;height:100%;object-fit:contain}
   .module-card .select-module{border:0;text-align:left;background:transparent;padding:0;min-height:24px;font-weight:600}
   .module-stage{border:1px solid #30373d;border-radius:8px;padding:18px;margin-top:14px}
   .module-stage h3{font-size:17px;margin:0 0 8px}
@@ -107,6 +110,8 @@ let snapshot = { targets: [] };
 let moduleSnapshot = { modules: [], issues: [] };
 const moduleStatuses = new Map();
 const moduleDetails = new Map();
+const moduleIcons = new Map();
+let iconSequence = Promise.resolve();
 let selectedModuleId = null;
 let activeView = "runtime";
 let busy = false;
@@ -207,6 +212,36 @@ async function loctl(kind, moduleId, operation) {
   if (!reply.ok) throw Error(reply.error || "Loctl operation failed");
   return reply.value;
 }
+function moduleGlyph(module) {
+  const glyph = document.createElement("span");
+  glyph.className = "module-glyph";
+  glyph.setAttribute("aria-hidden", "true");
+  const fallback = module.icon || module.name.slice(0, 2).toUpperCase();
+  if (module.iconType !== "file") {
+    glyph.textContent = fallback;
+    return glyph;
+  }
+  const image = document.createElement("img");
+  image.alt = "";
+  image.addEventListener("error", () => glyph.replaceChildren(document.createTextNode(fallback)), {once:true});
+  glyph.append(image);
+  if (!moduleIcons.has(module.id)) {
+    // Each icon is a one-shot Loctl process. Serialize cold loads to avoid
+    // starting a burst of short-lived WebView-free runtimes.
+    const loadIcon = iconSequence.then(() => loctl("module_icon", module.id)).then(value => {
+      const bytes = Uint8Array.from(value.bytes);
+      return URL.createObjectURL(new Blob([bytes], {type:value.mimeType}));
+    }).catch(() => null);
+    iconSequence = loadIcon.then(() => undefined);
+    moduleIcons.set(module.id, loadIcon);
+  }
+  moduleIcons.get(module.id).then(url => {
+    if (!image.isConnected) return;
+    if (url) image.src = url;
+    else glyph.replaceChildren(document.createTextNode(fallback));
+  });
+  return glyph;
+}
 function renderModules() {
   modules.replaceChildren();
   const query = moduleSearch.value.trim().toLowerCase();
@@ -239,7 +274,10 @@ function renderModules() {
       btn.disabled = busy;
       actions.append(btn);
     }
-    card.append(name, meta, status, actions);
+    const head = document.createElement("div");
+    head.className = "module-head";
+    head.append(moduleGlyph(m), name);
+    card.append(head, meta, status, actions);
     modules.append(card);
   }
   if (moduleSnapshot.issues?.length) {

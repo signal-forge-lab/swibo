@@ -6,7 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const extension = process.platform === 'win32' ? '.exe' : '';
-const binary = path.join(root, 'src-tauri', 'target', 'debug', `mcp-supervisor${extension}`);
+const release = process.argv.includes('--release');
+const targetDir = release
+  ? path.join(process.env.LOCALAPPDATA || path.join(root, 'local'), 'IntelligenceWorks', 'cargo-target', 'swibo-unified-release')
+  : path.join(root, 'src-tauri', 'target');
+const binary = path.join(targetDir, release ? 'release' : 'debug', `mcp-supervisor${extension}`);
 const loctlRoot = path.resolve(root, '..', '..', 'tools', 'loctl');
 const loctlSource = path.join(loctlRoot, 'src-tauri', 'src', 'main.rs');
 const candidates = [
@@ -39,9 +43,22 @@ const loctl = candidates.find(compatibleLoctl);
 if (!loctl) {
   throw new Error('No compatible Loctl headless executable. Build Loctl from current sources or set SWIBO_UNIFIED_LOCTL_EXE.');
 }
-if (process.argv.includes('--build') || !fs.existsSync(binary)) {
-  const build = spawnSync('cargo', ['build', '--manifest-path', path.join(root, 'src-tauri', 'Cargo.toml')], {
-    cwd: root, stdio: 'inherit', windowsHide: true
+const sourcePaths = [
+  path.join(root, 'ui-shell', 'unified.html'),
+  path.join(root, 'src-tauri', 'src', 'main.rs'),
+  path.join(root, 'src-tauri', 'src', 'unified_bridge.rs'),
+  path.join(root, 'src-tauri', 'tauri.conf.json'),
+  path.join(root, 'src-tauri', 'capabilities', 'unified-events.json')
+];
+const staleBinary = fs.existsSync(binary)
+  && sourcePaths.some(file => fs.existsSync(file) && fs.statSync(file).mtimeMs > fs.statSync(binary).mtimeMs);
+if (process.argv.includes('--build') || !fs.existsSync(binary) || staleBinary) {
+  const build = spawnSync('cargo', [
+    'build', ...(release ? ['--release'] : []),
+    '--manifest-path', path.join(root, 'src-tauri', 'Cargo.toml')
+  ], {
+    cwd: root, stdio: 'inherit', windowsHide: true,
+    env: {...process.env, ...(release ? {CARGO_TARGET_DIR:targetDir} : {})}
   });
   if (build.error || build.status !== 0) throw new Error(`Swibo preview build failed: ${build.error?.message ?? build.status}`);
 }
@@ -62,6 +79,6 @@ child.once('error', error => {
   process.exitCode = 1;
 });
 child.once('spawn', () => {
-  console.log(`Unified preview launched (PID ${child.pid}); existing Swibo and Loctl GUIs unchanged.`);
+  console.log(`Unified ${release ? 'release' : 'debug'} preview launched (PID ${child.pid}); existing Swibo and Loctl GUIs unchanged.`);
   child.unref();
 });

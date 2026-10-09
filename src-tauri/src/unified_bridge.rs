@@ -20,22 +20,27 @@ fn sse_status(line: &str) -> Option<serde_json::Value> {
     Some(value)
 }
 
+fn bounded_line<R: BufRead>(reader: &mut R, max_bytes: u64) -> Result<Option<String>, String> {
+    let mut line = Vec::new();
+    let bytes = reader.take(max_bytes + 1).read_until(b'\n', &mut line)
+        .map_err(|error| error.to_string())?;
+    if bytes == 0 { return Ok(None); }
+    if bytes as u64 > max_bytes { return Err("Swibo event line too large".into()); }
+    String::from_utf8(line).map(Some).map_err(|_| "Swibo event is not UTF-8".into())
+}
+
 fn relay_swibo_stream(app: &tauri::AppHandle) -> Result<(), String> {
     let mut stream = TcpStream::connect_timeout(&SWIBO, Duration::from_secs(2))
         .map_err(|error| error.to_string())?;
     stream.write_all(b"GET /api/events HTTP/1.1\r\nHost: 127.0.0.1:17991\r\nAccept: text/event-stream\r\nConnection: close\r\n\r\n")
         .map_err(|error| error.to_string())?;
     let mut reader = BufReader::new(stream);
-    let mut status_line = String::new();
-    reader.read_line(&mut status_line).map_err(|error| error.to_string())?;
+    let status_line = bounded_line(&mut reader, 8192)?.ok_or("Swibo event endpoint closed")?;
     if !status_line.starts_with("HTTP/1.1 200") {
         return Err("Swibo event endpoint unavailable".into());
     }
     loop {
-        let mut line = String::new();
-        let size = reader.read_line(&mut line).map_err(|error| error.to_string())?;
-        if size == 0 { return Err("Swibo event stream ended".into()); }
-        if line.len() > MAX_RESPONSE as usize { return Err("Swibo event too large".into()); }
+        let line = bounded_line(&mut reader, MAX_RESPONSE)?.ok_or("Swibo event stream ended")?;
         if let Some(snapshot) = sse_status(&line) {
             let _ = app.emit("unified-swibo-status", snapshot);
         }
@@ -125,18 +130,33 @@ fn extract_body(reply: &[u8]) -> Result<String, String> {
     let code = status.split_whitespace().nth(1).and_then(|value| value.parse::<u16>().ok())
         .ok_or("Invalid HTTP status")?;
     let body = &reply[split + 4..];
-    if code >= 400 { return Err(format!("Swibo HTTP {code}")); }
+    if !(200..300).contains(&code) { return Err(format!("Swibo HTTP {code}")); }
+    for header in headers.lines().skip(1) {
+        if let Some((name, value)) = header.split_once(':') {
+            if name.eq_ignore_ascii_case("transfer-encoding") {
+                return Err("Unsupported Swibo response encoding".into());
+            }
+            if name.eq_ignore_ascii_case("content-length") {
+                let expected = value.trim().parse::<usize>().map_err(|_| "Invalid response length")?;
+                if expected != body.len() { return Err("Truncated or trailing Swibo response body".into()); }
+            }
+        }
+    }
     String::from_utf8(body.to_vec()).map_err(|_| "Invalid daemon JSON encoding".into())
 }
 
 fn swibo_http(method: &str, route: &str, body: Option<&str>) -> Result<String, String> {
-    let mut stream = TcpStream::connect_timeout(&SWIBO, Duration::from_secs(2))
+    swibo_http_at(SWIBO, method, route, body)
+}
+
+fn swibo_http_at(address: SocketAddr, method: &str, route: &str, body: Option<&str>) -> Result<String, String> {
+    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(2))
         .map_err(|error| format!("Swibo daemon unavailable: {error}"))?;
     stream.set_read_timeout(Some(Duration::from_secs(if method == "GET" { 8 } else { 120 }))).map_err(|error| error.to_string())?;
     stream.set_write_timeout(Some(Duration::from_secs(2))).map_err(|error| error.to_string())?;
     let payload = body.unwrap_or_default();
     let content_type = if body.is_some() { "Content-Type: application/json\r\n" } else { "" };
-    let request = format!("{method} {route} HTTP/1.1\r\nHost: 127.0.0.1:17991\r\nConnection: close\r\n{content_type}Content-Length: {}\r\n\r\n", payload.len());
+    let request = format!("{method} {route} HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\n{content_type}Content-Length: {}\r\n\r\n", payload.len());
     stream.write_all(request.as_bytes()).map_err(|error| error.to_string())?;
     if !payload.is_empty() {
         stream.write_all(payload.as_bytes()).map_err(|error| error.to_string())?;
@@ -249,6 +269,8 @@ pub(crate) fn unified_swibo_request(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io;
+    use std::net::TcpListener;
 
     #[test]
     fn routes_are_strictly_allowlisted() {
@@ -263,7 +285,6 @@ mod tests {
             assert!(request_route("stop", Some(input), None).is_err());
         }
         assert!(request_route("component-stop", Some("safe"), Some("../bad")).is_err());
-        assert!(request_route("shutdown", None, None).is_err());
         assert!(request_route("shutdown", None, None).is_err());
     }
 
@@ -291,7 +312,54 @@ mod tests {
     fn http_reply_parser_rejects_invalid_or_failing_status() {
         assert_eq!(extract_body(b"HTTP/1.1 200 OK\r\nContent-Length: 11\r\n\r\n{\"ok\":true}").unwrap(), "{\"ok\":true}");
         assert!(extract_body(b"HTTP/1.1 403 Forbidden\r\n\r\n{}").is_err());
+        assert!(extract_body(b"HTTP/1.1 302 Found\r\n\r\n{}").is_err());
+        assert!(extract_body(b"HTTP/1.1 200 OK\r\nContent-Length: 11\r\n\r\n{}").is_err());
+        assert!(extract_body(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n").is_err());
         assert!(extract_body(b"garbage").is_err());
+    }
+
+    #[test]
+    fn event_lines_are_bounded_before_allocating_unlimited_input() {
+        let mut valid = io::Cursor::new(b"data: {\"targets\":[]}\n".to_vec());
+        assert!(bounded_line(&mut valid, 128).unwrap().is_some());
+        let mut huge = io::Cursor::new(vec![b'x'; 200]);
+        assert!(bounded_line(&mut huge, 64).is_err());
+        let mut eof = io::Cursor::new(Vec::new());
+        assert!(bounded_line(&mut eof, 64).unwrap().is_none());
+    }
+
+    #[test]
+    fn daemon_bridge_routes_mutation_through_loopback_without_touching_live_registry() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            let mut reader = BufReader::new(&mut stream);
+            let mut headers = String::new();
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                if line == "\r\n" { break; }
+                headers.push_str(&line);
+            }
+            assert!(headers.starts_with("PUT /api/targets/old-id HTTP/1.1\r\n"));
+            assert!(headers.contains("Content-Type: application/json\r\n"));
+            let size = headers.lines().find_map(|line| line.strip_prefix("Content-Length: "))
+                .unwrap().trim().parse::<usize>().unwrap();
+            let mut body = vec![0; size];
+            reader.read_exact(&mut body).unwrap();
+            let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(value["id"], "new-id");
+            drop(reader);
+            let response = b"{\"ok\":true}";
+            stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n", response.len()).as_bytes()).unwrap();
+            stream.write_all(response).unwrap();
+        });
+        let target = serde_json::json!({"id":"new-id","name":"fixture"});
+        let (method, path, body) = registry_route("update", Some("old-id"), Some(&target)).unwrap();
+        assert_eq!(swibo_http_at(address, method, &path, body.as_deref()).unwrap(), "{\"ok\":true}");
+        server.join().unwrap();
     }
 
     #[test]
