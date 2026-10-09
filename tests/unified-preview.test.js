@@ -35,4 +35,9 @@ test('unified UI covers pinned launcher, selected detail, status facets and auto
   }
   assert.match(html, /unified-swibo-status/);
   assert.match(html, /unified_swibo_watch/);
+  for (const feature of ['target-editor','add-target','save-target','delete-target','expandedTargets','start-all','stop-all','unified_swibo_registry']) {
+    assert.ok(html.includes(feature), `Missing target management: ${feature}`);
+  }
+  assert.match(bridge, /registry_route/);
+  assert.match(bridge, /Invalid target ID/);
 });

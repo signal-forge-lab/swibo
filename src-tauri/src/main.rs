@@ -40,6 +40,7 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             unified_bridge::unified_swibo_request,
+            unified_bridge::unified_swibo_registry,
             unified_bridge::unified_swibo_autostart,
             unified_bridge::unified_swibo_watch,
             unified_bridge::unified_loctl_request

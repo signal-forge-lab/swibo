@@ -67,6 +67,8 @@ fn request_route(kind: &str, target_id: Option<&str>, component: Option<&str>) -
     match kind {
         "status" => Ok(("GET", "/api/status".into())),
         "refresh" => Ok(("POST", "/api/refresh".into())),
+        "start-all" => Ok(("POST", "/api/start-all".into())),
+        "stop-all" => Ok(("POST", "/api/stop-all".into())),
         "start" | "stop" | "restart" => {
             let id = target_id.filter(|id| valid_id(id)).ok_or("Invalid target ID")?;
             Ok(("POST", format!("/api/targets/{id}/{kind}")))
@@ -79,6 +81,39 @@ fn request_route(kind: &str, target_id: Option<&str>, component: Option<&str>) -
         }
         _ => Err("Unknown request".into()),
     }
+}
+
+fn registry_route(kind: &str, target_id: Option<&str>, target: Option<&serde_json::Value>) -> Result<(&'static str, String, Option<String>), String> {
+    match kind {
+        "add" | "update" => {
+            let value = target.and_then(serde_json::Value::as_object).ok_or("Target must be a JSON object")?;
+            value.get("id").and_then(serde_json::Value::as_str)
+                .filter(|id| valid_id(id)).ok_or("Invalid target ID")?;
+            let route = if kind == "add" {
+                "/api/targets".to_string()
+            } else {
+                let existing = target_id.filter(|id| valid_id(id)).ok_or("Invalid original target ID")?;
+                format!("/api/targets/{existing}")
+            };
+            let method = if kind == "add" { "POST" } else { "PUT" };
+            Ok((method, route, Some(serde_json::to_string(value).map_err(|error| error.to_string())?)))
+        }
+        "remove" => {
+            if target.is_some() { return Err("Remove must not supply target JSON".into()); }
+            let id = target_id.filter(|id| valid_id(id)).ok_or("Invalid target ID")?;
+            Ok(("DELETE", format!("/api/targets/{id}"), None))
+        }
+        _ => Err("Unknown registry operation".into()),
+    }
+}
+
+#[tauri::command]
+pub(crate) fn unified_swibo_registry(kind: String, target_id: Option<String>, target: Option<serde_json::Value>) -> Result<String, String> {
+    if std::env::var("SWIBO_UNIFIED_PREVIEW").as_deref() != Ok("1") {
+        return Err("Unified preview is disabled".into());
+    }
+    let (method, route, body) = registry_route(&kind, target_id.as_deref(), target.as_ref())?;
+    swibo_http(method, &route, body.as_deref())
 }
 
 fn extract_body(reply: &[u8]) -> Result<String, String> {
@@ -219,6 +254,8 @@ mod tests {
     fn routes_are_strictly_allowlisted() {
         assert_eq!(request_route("status", None, None).unwrap(), ("GET", "/api/status".into()));
         assert_eq!(request_route("refresh", None, None).unwrap(), ("POST", "/api/refresh".into()));
+        assert_eq!(request_route("start-all", None, None).unwrap(), ("POST", "/api/start-all".into()));
+        assert_eq!(request_route("stop-all", None, None).unwrap(), ("POST", "/api/stop-all".into()));
         assert_eq!(request_route("start", Some("runtime-1"), None).unwrap(), ("POST", "/api/targets/runtime-1/start".into()));
         assert_eq!(request_route("component-restart", Some("runtime-1"), Some("monitor")).unwrap(),
                    ("POST", "/api/targets/runtime-1/components/monitor/restart".into()));
@@ -227,7 +264,19 @@ mod tests {
         }
         assert!(request_route("component-stop", Some("safe"), Some("../bad")).is_err());
         assert!(request_route("shutdown", None, None).is_err());
-        assert!(request_route("stop-all", None, None).is_err());
+        assert!(request_route("shutdown", None, None).is_err());
+    }
+
+    #[test]
+    fn registry_mutations_are_bound_to_valid_ids_and_daemon_routes() {
+        let target = serde_json::json!({"id":"safe-1","name":"Safe","startupPolicy":"manual"});
+        assert_eq!(registry_route("add", None, Some(&target)).unwrap().0, "POST");
+        assert_eq!(registry_route("update", Some("old-id"), Some(&target)).unwrap().1, "/api/targets/old-id");
+        assert_eq!(registry_route("remove", Some("safe-1"), None).unwrap().0, "DELETE");
+        assert!(registry_route("add", None, Some(&serde_json::json!({"id":"../bad"}))).is_err());
+        assert!(registry_route("update", Some("../bad"), Some(&target)).is_err());
+        assert!(registry_route("remove", Some("safe"), Some(&target)).is_err());
+        assert!(registry_route("bulk-delete", None, None).is_err());
     }
 
     #[test]

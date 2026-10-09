@@ -32,6 +32,14 @@
   #error{min-height:18px;color:#ed7871;margin-bottom:12px}
   .foot{margin-top:20px;color:#9aa6ad;font-size:12px}
   #refresh{background:#1d2227;border:1px solid #465059;border-radius:6px;padding:8px 13px}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+  .toolbar button,.edit-target,.expand-target,.editor-actions button{background:#1d2227;border:1px solid #465059;border-radius:6px;padding:6px 10px}
+  .runtime-detail{grid-column:1/-1;display:grid;gap:5px;color:#9aa6ad;font-size:12px;padding:8px 0}
+  dialog{background:#171b1f;border:1px solid #465059;border-radius:10px;color:inherit;width:min(720px,92vw);padding:20px}
+  dialog::backdrop{background:#0009}
+  dialog textarea{width:100%;min-height:340px;background:#0d0f11;color:inherit;border:1px solid #465059;border-radius:6px;padding:12px;font:12px/1.5 Consolas,monospace;resize:vertical}
+  .editor-actions{display:flex;gap:8px;margin-top:12px}
+  .editor-actions .danger{margin-left:auto;color:#ed7871}
   .module-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:16px}
   .module-card{background:#171b1f;border:1px solid #30373d;border-radius:8px;padding:14px;min-height:110px}
   .module-card .meta{color:#9aa6ad;font-size:12px;margin:7px 0 12px}
@@ -64,9 +72,10 @@
 <main>
 <div id="error" role="status" aria-live="polite"></div>
 <section id="runtime-panel">
+<div class="toolbar"><button id="start-all" type="button">Start all</button><button id="stop-all" type="button">Stop all</button><button id="add-target" type="button">Add target</button></div>
 <div class="row head"><span>RUNTIME</span><span>STATUS</span><span>AUTO</span><span>OPERATIONS</span><span class="monitor">MONITOR</span></div>
 <div id="targets" aria-live="off"></div>
-<p class="foot">Swiboの既存APIを使用。詳細編集は従来アプリで利用できます。</p>
+<p class="foot">Swiboの既存API・registryを共有します。変更は通常のSwiboにも反映されます。</p>
 </section>
 <section id="launcher-panel" hidden>
   <div class="launcher-filter"><h2>Launcher</h2><input id="module-search" type="search" placeholder="Search modules…" aria-label="Search modules"></div>
@@ -75,6 +84,7 @@
   <div id="module-stage" class="module-stage" hidden aria-live="polite"></div>
 </section>
 </main>
+<dialog id="target-editor"><form method="dialog"><h2 id="editor-title">Edit target</h2><p class="hint">Swibo registry JSON。保存時はdaemon側で既存と同じ検証を実施します。</p><textarea id="target-json" aria-label="Target JSON" spellcheck="false"></textarea><p id="editor-error" role="alert" class="issue"></p><div class="editor-actions"><button type="button" id="save-target">Save</button><button type="submit">Cancel</button><button type="button" id="delete-target" class="danger">Delete target</button></div></form></dialog>
 <script>
 "use strict";
 const api = globalThis.__TAURI__?.core?.invoke;
@@ -89,6 +99,10 @@ const launcherPanel = document.querySelector("#launcher-panel");
 const modules = document.querySelector("#modules");
 const moduleSearch = document.querySelector("#module-search");
 const moduleStage = document.querySelector("#module-stage");
+const editorDialog = document.querySelector("#target-editor");
+const editorText = document.querySelector("#target-json");
+const editorError = document.querySelector("#editor-error");
+const deleteTargetButton = document.querySelector("#delete-target");
 let snapshot = { targets: [] };
 let moduleSnapshot = { modules: [], issues: [] };
 const moduleStatuses = new Map();
@@ -96,6 +110,8 @@ const moduleDetails = new Map();
 let selectedModuleId = null;
 let activeView = "runtime";
 let busy = false;
+let editingId = null;
+const expandedTargets = new Set();
 function button(label, title, action, target, component) {
   const btn = document.createElement("button");
   btn.textContent = label;
@@ -116,7 +132,11 @@ function render() {
     strong.textContent = t.name;
     const detail = document.createElement("small");
     detail.textContent = t.id;
-    identity.append(strong, detail);
+    const detailsButton = button(expandedTargets.has(t.id) ? "− Details" : "+ Details", "Toggle details for "+t.name, "expand", t.id);
+    detailsButton.className = "expand-target";
+    const editButton = button("Edit", "Edit "+t.name, "edit", t.id);
+    editButton.className = "edit-target";
+    identity.append(strong, detail, detailsButton, editButton);
     const status = document.createElement("span");
     status.className = String(t.state || "").toLowerCase();
     const lamp = document.createElement("span");
@@ -142,11 +162,23 @@ function render() {
     monitors.className = "actions monitor";
     for (const [key, c] of Object.entries(t.components || {})) {
       if (c.notApplicable) continue;
-      monitors.append(button("▶", "start "+(c.label||key), "component-start", t.id, key));
-      monitors.append(button("■", "stop "+(c.label||key), "component-stop", t.id, key));
-      monitors.append(button("↻", "restart "+(c.label||key), "component-restart", t.id, key));
+      for (const [action, symbol] of [["start","▶"],["stop","■"],["restart","↻"]]) {
+        const control = button(symbol, action+" "+(c.label||key), "component-"+action, t.id, key);
+        control.disabled = busy || !t.enabled;
+        monitors.append(control);
+      }
     }
     row.append(identity, status, auto, actions, monitors);
+    if (expandedTargets.has(t.id)) {
+      const details = document.createElement("div");
+      details.className = "runtime-detail";
+      for (const [label, data] of [["Server",t.server],["Tunnel",t.tunnel],["Last check",t.checkedAt]]) {
+        const line = document.createElement("div");
+        line.textContent = label + ": " + (typeof data === "object" && data ? [data.ready ? "READY" : "NOT READY",data.detail || data.error].filter(Boolean).join(" · ") : String(data ?? "N/A"));
+        details.append(line);
+      }
+      row.append(details);
+    }
     targets.append(row);
   }
 }
@@ -154,6 +186,20 @@ async function request(kind, targetId, component) {
   if (typeof api !== "function") throw Error("Tauriブリッジに接続できません");
   const value = await api("unified_swibo_request", { kind, targetId, component });
   return JSON.parse(value);
+}
+async function registry(kind, targetId, target) {
+  if (typeof api !== "function") throw Error("Tauriブリッジに接続できません");
+  return JSON.parse(await api("unified_swibo_registry", { kind, targetId, target }));
+}
+function openEditor(id=null) {
+  const current = snapshot.registry?.targets?.find(target => target.id === id);
+  if (id && !current) { error.textContent = "Target registry entry not found"; return; }
+  editingId = id;
+  document.querySelector("#editor-title").textContent = current ? "Edit "+current.name : "Add target";
+  editorText.value = JSON.stringify(current || {id:"new-target",name:"New target",enabled:false,startupPolicy:"manual",lifecycle:{},checks:{server:{type:"none"},tunnel:{type:"none"}}},null,2);
+  editorError.textContent = "";
+  deleteTargetButton.hidden = !id;
+  editorDialog.showModal();
 }
 async function loctl(kind, moduleId, operation) {
   if (typeof api !== "function") throw Error("Tauriブリッジに接続できません");
@@ -281,6 +327,43 @@ async function load(kind="status") {
   } catch (err) { error.textContent = String(err); }
   finally { busy = false; refreshButton.disabled = false; render(); }
 }
+for (const kind of ["start-all","stop-all"]) {
+  document.querySelector("#"+kind).addEventListener("click", async () => {
+    if (busy || !confirm(kind+" managed runtimes?")) return;
+    busy = true;
+    error.textContent = "";
+    render();
+    let failure = "";
+    try { await request(kind); }
+    catch (err) { failure = String(err); }
+    finally {
+      busy = false;
+      await load("status");
+      if (failure) error.textContent = failure;
+    }
+  });
+}
+document.querySelector("#add-target").addEventListener("click", () => openEditor());
+document.querySelector("#save-target").addEventListener("click", async () => {
+  if (busy) return;
+  let value;
+  try { value = JSON.parse(editorText.value); }
+  catch (err) { editorError.textContent = "Invalid JSON: "+err.message; return; }
+  busy = true;
+  try {
+    await registry(editingId ? "update" : "add", editingId, value);
+    editorDialog.close();
+    await load("status");
+  } catch (err) { editorError.textContent = String(err); }
+  finally { busy = false; }
+});
+deleteTargetButton.addEventListener("click", async () => {
+  if (!editingId || busy || !confirm("Remove "+editingId+" from registry? This does not stop its process.")) return;
+  busy = true;
+  try { await registry("remove", editingId); editorDialog.close(); await load("status"); }
+  catch (err) { editorError.textContent = String(err); }
+  finally { busy = false; }
+});
 refreshButton.addEventListener("click", async () => {
   if (activeView === "runtime") await load("refresh");
   else await setView("launcher");
@@ -345,6 +428,12 @@ modules.addEventListener("click", async event => {
 targets.addEventListener("click", async (event) => {
   const btn = event.target.closest("button[data-action],button[data-autostart-target]");
   if (!btn || busy) return;
+  if (btn.dataset.action === "expand") {
+    expandedTargets.has(btn.dataset.target) ? expandedTargets.delete(btn.dataset.target) : expandedTargets.add(btn.dataset.target);
+    render();
+    return;
+  }
+  if (btn.dataset.action === "edit") { openEditor(btn.dataset.target); return; }
   busy = true;
   error.textContent = "";
   render();
@@ -359,7 +448,7 @@ targets.addEventListener("click", async (event) => {
   } catch (err) { error.textContent = String(err); }
   finally { busy = false; render(); }
 });
-load();
+load("refresh");
 </script>
 </body>
 </html>

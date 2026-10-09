@@ -9,7 +9,7 @@
 - [x] T004 Reuse the existing Loctl Rust module runtime via bounded headless
       one-shot JSON dispatch; preserve registry and process-json-v1 semantics
       without a second permanent WebView2.
-- [ ] T005 Wire the merged dashboard's real Runtime / Auto-start / Monitor
+- [x] T005 Wire the merged dashboard's real Runtime / Auto-start / Monitor
       and Launcher / Favorites / Module flows into the live services.
 - [ ] T006 Unit/integration tests for action parity, module failure isolation,
       navigation/origin denial, service persistence, and no idle polling.
@@ -57,3 +57,26 @@ Do not retire either standalone GUI on the basis of this preview alone.
   outstanding.
 - Full source tests and Clippy passed before the additional event-listener
   capability. Final regression is required again after all changes are saved.
+
+## Continuation evidence, 2026-10-10
+
+- Unified Runtime now includes registry-backed target Add/Edit/Delete through
+  an opt-in-only, ID-validated local daemon bridge, along with target detail
+  expansion and start-all/stop-all actions. Existing per-target and monitor
+  controls, autostart, module actions, pinned ordering, search, and SSE remain.
+- The GUI was launched with the current debug build next to the unchanged
+  standalone applications. Windows UI Automation verified 17 live Swibo
+  targets, the existing Workbridge target editor containing the real registry
+  JSON, and the separate Launcher search field. The editor was cancelled;
+  no live target mutation or runtime lifecycle operation was performed.
+- Swibo Node 61/61; Rust 9/9, Clippy clean. Unsafe IDs and unknown registry
+  actions are rejected by the bridge; the daemon remains the final registry
+  validator. The ordinary standalone GUI retains its preview-disabled gate.
+- T006 remains open for live mutation/action-isolation E2E and security parity.
+  The strict exclusive cold/warm benchmark T007 and opt-in release/rollback
+  gate T008 have not been completed. Standalone GUI cutover is not approved.
+- A release build attempt failed at replacing the existing
+  `src-tauri/target/release/mcp-supervisor.exe` with Windows access denied
+  (OS error 5). The current standalone executable was not terminated or
+  replaced. A future isolated release target or a coordinated GUI shutdown
+  is needed to complete T008 without disrupting live usage.
