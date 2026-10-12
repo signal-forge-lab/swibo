@@ -96,6 +96,9 @@ Use the existing registry schema and tests as the source of truth for supported 
 1. Keep `command` and `args` separate. Never encode shell pipelines, `&&`, redirections, or compound shell strings into a registry command.
 2. Prefer an existing target-owned start/stop wrapper when one exists. Swibo should orchestrate it, not duplicate target-specific lifecycle knowledge.
 3. Start and stop must be idempotent. Repeated Start on READY and repeated Stop on STOPPED must be safe.
+   An explicit Restart always invokes the target-owned idempotent stop wrapper,
+   even when readiness says STOPPED; the wrapper must safely identify its process.
+   If that stop fails, do not proceed to Start.
 4. A stop definition must identify only the intended service. Do not use broad `taskkill`, name-only process killing, wildcard process deletion, or unrelated port eviction.
 5. For a service plus tunnel, keep server and tunnel checks separate. A server-up/tunnel-down state should remain repairable as DEGRADED rather than being treated as fully stopped.
 6. Use `unlessReady`/`waitFor` declaratively where applicable instead of adding special-case code to the supervisor core.

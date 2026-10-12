@@ -190,14 +190,14 @@ export class Supervisor {
     if (action.waitFor) await this.waitForCheck(target, action.waitFor, true, action.waitTimeoutMs || 30000);
   }
 
-  async runLifecycle(id, phase) {
+  async runLifecycle(id, phase, { forceStop = false } = {}) {
     const target = this.target(id);
     if (target.enabled === false && phase === "start") throw new Error(`${target.name} is disabled.`);
     if (this.operations.has(id)) throw new Error(`${target.name} already has an active operation.`);
     if (this.hasComponentOperation(id)) throw new Error(`${target.name} already has an active component operation.`);
     const before = await this.checkTarget(target, { includeOperation: false });
     if (phase === "start" && before.state === "READY") return before;
-    if (phase === "stop" && before.state === "STOPPED") return before;
+    if (phase === "stop" && before.state === "STOPPED" && !forceStop) return before;
     this.operations.set(id, phase === "start" ? "STARTING" : "STOPPING");
     this.lastErrors.delete(id);
     try {
@@ -259,7 +259,10 @@ export class Supervisor {
   }
 
   async restart(id) {
-    await this.stop(id);
+    // A failed readiness check does not prove the process has exited.
+    // Restart must run the target-owned (idempotent) stop wrapper even when
+    // cached readiness says STOPPED, or the subsequent start can double-spawn.
+    await this.runLifecycle(id, "stop", { forceStop: true });
     return this.start(id);
   }
 

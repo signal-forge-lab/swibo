@@ -83,6 +83,51 @@ test("stop follows the explicit safe shutdown order", async () => {
   assert.equal(status.state, "STOPPED");
 });
 
+test("restart runs safe stop even when readiness incorrectly reports STOPPED", async () => {
+  const calls = [];
+  const readiness = { server: false, tunnel: false };
+  const supervisor = new Supervisor({
+    registry: { version: 1, targets: [exampleTarget] },
+    runCommand: async (spec) => {
+      calls.push(spec.command);
+      if (spec.command === "server-start") readiness.server = true;
+      if (spec.command === "tunnel-start") readiness.tunnel = true;
+      return { code: 0, stdout: "", stderr: "" };
+    },
+    runCheck: async (spec) => ({ ready: readiness[spec.key] }),
+    wait: async () => {}
+  });
+
+  const before = await supervisor.stop("example");
+  assert.equal(before.state, "STOPPED");
+  assert.deepEqual(calls, [], "ordinary Stop remains idempotent");
+
+  const result = await supervisor.restart("example");
+  assert.deepEqual(calls, ["tunnel-stop", "server-stop", "server-start", "tunnel-start"]);
+  assert.equal(result.state, "READY");
+});
+
+test("restart refuses to start if the forced stop wrapper fails", async () => {
+  const calls = [];
+  const supervisor = new Supervisor({
+    registry: { version: 1, targets: [exampleTarget] },
+    runCheck: async () => ({ ready: false }),
+    runCommand: async (spec) => {
+      calls.push(spec.command);
+      if (spec.command === "tunnel-stop") {
+        return { code: 1, stderr: "refusing to stop an unverified process" };
+      }
+      return { code: 0, stdout: "", stderr: "" };
+    }
+  });
+
+  await assert.rejects(
+    supervisor.restart("example"),
+    /refusing to stop an unverified process/
+  );
+  assert.deepEqual(calls, ["tunnel-stop"], "no start before verified stop");
+});
+
 test("stop does not wait for a not-applicable server on a tunnel-only target", async () => {
   const target = structuredClone(exampleTarget);
   target.checks.server = { type: "none", key: "server" };
