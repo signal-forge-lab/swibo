@@ -49,3 +49,14 @@ test('unified UI covers pinned launcher, selected detail, status facets and auto
   assert.match(bridge, /registry_route/);
   assert.match(bridge, /Invalid target ID/);
 });
+
+
+test('unified status honors cached freshness without periodic status requests', () => {
+  assert.match(html, /CACHE_STALE_AFTER_MS = 2 \* 60 \* 1000/);
+  assert.match(html, /function targetIsStale/);
+  assert.match(html, /scheduleFreshnessRender\(\)/);
+  assert.match(html, /clearTimeout\(freshnessTimer\)/);
+  assert.match(html, /status\.className = stale \? "stale"/);
+  assert.match(html, /control\.disabled = busy \|\| !t\.enabled \|\| stale/);
+  assert.doesNotMatch(html, /setInterval\s*\(/);
+});

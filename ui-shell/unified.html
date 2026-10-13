@@ -24,7 +24,7 @@
   .row strong{font-size:14px;font-weight:600}
   .row small{display:block;color:#9aa6ad;margin-top:4px;overflow:hidden;text-overflow:ellipsis}
   .lamp{display:inline-block;width:7px;height:7px;border-radius:50%;background:#8b959d;margin-right:8px}
-  .ready .lamp{background:#65c394}.degraded .lamp{background:#e4ac4f}
+  .ready .lamp{background:#65c394}.degraded .lamp,.stale .lamp{background:#e4ac4f}.stale{color:#e4ac4f}
   .actions{display:flex;gap:4px}.actions button{border:1px solid #465059;border-radius:5px;background:#1d2227;min-width:34px;min-height:31px}
   .actions button:hover:not(:disabled){background:#30373d}
   .autostart{color:#d8a84d;font-weight:600}
@@ -116,6 +116,26 @@ let selectedModuleId = null;
 let activeView = "runtime";
 let busy = false;
 let editingId = null;
+const CACHE_STALE_AFTER_MS = 2 * 60 * 1000;
+let freshnessTimer = null;
+function targetIsStale(target, now = Date.now()) {
+  const timestamp = Date.parse(target?.checkedAt ?? "");
+  return !Number.isFinite(timestamp) || now - timestamp >= CACHE_STALE_AFTER_MS;
+}
+function scheduleFreshnessRender() {
+  clearTimeout(freshnessTimer);
+  let earliest = Infinity;
+  const now = Date.now();
+  for (const target of snapshot.targets || []) {
+    const stamp = Date.parse(target.checkedAt ?? "");
+    if (!Number.isFinite(stamp)) continue;
+    const remaining = stamp + CACHE_STALE_AFTER_MS - now;
+    if (remaining > 0 && remaining < earliest) earliest = remaining;
+  }
+  if (Number.isFinite(earliest)) {
+    freshnessTimer = setTimeout(render, Math.min(Math.ceil(earliest) + 20, 2_147_483_647));
+  }
+}
 const expandedTargets = new Set();
 function button(label, title, action, target, component) {
   const btn = document.createElement("button");
@@ -143,10 +163,12 @@ function render() {
     editButton.className = "edit-target";
     identity.append(strong, detail, detailsButton, editButton);
     const status = document.createElement("span");
-    status.className = String(t.state || "").toLowerCase();
+    const stale = targetIsStale(t);
+    status.className = stale ? "stale" : String(t.state || "").toLowerCase();
+    if (stale) status.title = "Last observed " + (t.state || "UNKNOWN") + "; refresh to verify";
     const lamp = document.createElement("span");
     lamp.className = "lamp";
-    status.append(lamp, document.createTextNode(t.state || "UNKNOWN"));
+    status.append(lamp, document.createTextNode(stale ? "STALE" : (t.state || "UNKNOWN")));
     const auto = document.createElement("button");
     auto.type = "button";
     auto.className = "autostart-toggle" + (t.startupPolicy === "auto" ? " autostart" : "");
@@ -160,7 +182,7 @@ function render() {
     actions.className = "actions";
     for (const [kind, label] of [["start","▶"],["stop","■"],["restart","↻"]]) {
       const btn = button(label, kind+" "+t.name, kind, t.id);
-      btn.disabled = busy || !t.enabled;
+      btn.disabled = busy || !t.enabled || stale;
       actions.append(btn);
     }
     const monitors = document.createElement("div");
@@ -169,7 +191,7 @@ function render() {
       if (c.notApplicable) continue;
       for (const [action, symbol] of [["start","▶"],["stop","■"],["restart","↻"]]) {
         const control = button(symbol, action+" "+(c.label||key), "component-"+action, t.id, key);
-        control.disabled = busy || !t.enabled;
+        control.disabled = busy || !t.enabled || stale;
         monitors.append(control);
       }
     }
@@ -186,6 +208,7 @@ function render() {
     }
     targets.append(row);
   }
+  scheduleFreshnessRender();
 }
 async function request(kind, targetId, component) {
   if (typeof api !== "function") throw Error("Tauriブリッジに接続できません");
