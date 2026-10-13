@@ -267,7 +267,37 @@ export class Supervisor {
     const targets = this.registry.targets.filter((target) =>
       target.enabled !== false && (!autoOnly || target.startupPolicy === "auto")
     );
-    return mapLimit(targets, 3, (target) => this.start(target.id));
+    const byId = new Map(targets.map((target) => [target.id, target]));
+    const ordered = [];
+    const visited = new Set();
+    function visit(target) {
+      if (visited.has(target.id)) return;
+      visited.add(target.id);
+      for (const id of target.dependsOn || []) visit(byId.get(id));
+      ordered.push(target);
+    }
+    for (const target of targets) visit(target);
+    const gates = new Map(targets.map((target) => {
+      let resolve;
+      const promise = new Promise((done) => { resolve = done; });
+      return [target.id, { promise, resolve }];
+    }));
+    return mapLimit(ordered, 3, async (target) => {
+      try {
+        for (const id of target.dependsOn || []) {
+          if (!(await gates.get(id).promise)) throw new Error(`${target.id} startup dependency ${id} failed.`);
+        }
+        const status = await this.start(target.id);
+        gates.get(target.id).resolve(true);
+        return status;
+      } catch (error) {
+        gates.get(target.id).resolve(false);
+        throw error;
+      }
+    }).then((results) => {
+      const byResult = new Map(ordered.map((target, i) => [target.id, results[i]]));
+      return targets.map((target) => byResult.get(target.id));
+    });
   }
 
   stopAll() {

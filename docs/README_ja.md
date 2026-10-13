@@ -115,6 +115,14 @@ SwiboはMCP ServerでないローカルAIユーティリティも、決定的な
 
 これはlifecycle管理用Targetであり、MCP宣言ではありません。Browser extensionの導入やブラウザ権限確認はSwiboの責務外です。
 
+### 自動起動時の依存関係
+
+自動起動するTargetには、先にREADYになる必要があるTargetを
+`"dependsOn": ["workbridge", "cua-driver"]` のように指定できます。
+依存先は存在する有効な `auto` Targetに限り、循環参照は許可されません。
+無関係なTargetは従来どおり最大3件で並列起動します。依存先の起動が失敗した場合、
+そのTargetの自動起動は実行しません。手動Startの動作は変更しません。
+
 ## Git とローカル / 非公開データ
 
 Swibo では、開発工程と公開可否を別の責務として管理します。

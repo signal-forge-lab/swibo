@@ -43,6 +43,17 @@ test("validateRegistry rejects duplicate target ids", () => {
   );
 });
 
+test("validateRegistry rejects invalid automatic startup dependencies", () => {
+  const workbridge = { ...target("workbridge"), startupPolicy: "auto" };
+  const gateway = { ...target("gateway"), startupPolicy: "auto", dependsOn: ["workbridge"] };
+  assert.equal(validateRegistry({ version: 1, targets: [gateway, workbridge] }).targets.length, 2);
+  assert.throws(() => validateRegistry({ version: 1, targets: [gateway] }), /unknown startup dependency/i);
+  assert.throws(() => validateRegistry({ version: 1, targets: [gateway, target("workbridge")] }), /auto-enabled/i);
+  assert.throws(() => validateRegistry({ version: 1, targets: [{ ...gateway, dependsOn: ["workbridge", "workbridge"] }, workbridge] }), /duplicate startup dependency/i);
+  assert.throws(() => validateRegistry({ version: 1, targets: [{ ...gateway, dependsOn: ["gateway"] }] }), /cycle/i);
+  assert.throws(() => validateRegistry({ version: 1, targets: [gateway, { ...workbridge, dependsOn: ["gateway"] }] }), /cycle/i);
+});
+
 test("validateRegistry rejects shell command strings", () => {
   const invalid = target();
   invalid.lifecycle.start = [{ command: "node server.js" }];

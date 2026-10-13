@@ -115,6 +115,13 @@ For example, BrowserSkill can be represented by starting its foreground daemon a
 
 This is a lifecycle target, not an MCP declaration. Browser extension installation and browser permission prompts remain outside Swibo.
 
+### Automatic startup dependencies
+
+An auto-start target can specify `"dependsOn": ["workbridge", "cua-driver"]` when those
+targets must be READY first. Dependencies must refer to enabled `auto` targets; unknown
+targets and cycles are rejected. Independent targets still start concurrently (up to three).
+If a dependency fails, its dependent target is not started. Explicit manual Start is unchanged.
+
 ## Git and local/private data
 
 Swibo keeps development flow and confidentiality as separate concerns:

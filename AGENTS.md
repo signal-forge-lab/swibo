@@ -84,6 +84,10 @@ Each target uses this shape:
 ```
 
 Supported startup policy values are `manual` and `auto`.
+For automatic startup ordering, an `auto` target may declare `dependsOn: ["other-auto-target"]`.
+Every referenced target must exist, be enabled and use `startupPolicy: "auto"`; cycles are invalid.
+Swibo waits for declared dependencies to finish their ready checks before starting the dependent target.
+Unrelated targets keep concurrent startup. This does not change manual Start or Stop behavior.
 
 Use the existing registry schema and tests as the source of truth for supported lifecycle/check fields. Current check implementations include `none`, `http`, `tcp`, `command`, `pidFile`, and `httpUrlFile`.
 

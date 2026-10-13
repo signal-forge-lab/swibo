@@ -239,3 +239,53 @@ test("statusAll coalesces concurrent callers and bounds target-check fanout", as
   assert.deepEqual(second, first);
   assert.deepEqual(third, first);
 });
+
+test("auto-start waits for declared dependencies while unrelated targets remain concurrent", async () => {
+  const calls = [];
+  const ready = new Set();
+  const makeTarget = (id, dependsOn = []) => ({
+    ...structuredClone(exampleTarget), id, name: id, startupPolicy: "auto", dependsOn,
+    components: {}, lifecycle: { start: [{ command: id }], stop: [] },
+    checks: { server: { key: id }, tunnel: { type: "none" } }
+  });
+  const targets = [makeTarget("gateway", ["workbridge", "cua"]), makeTarget("workbridge"), makeTarget("cua"), makeTarget("unrelated")];
+  const supervisor = new Supervisor({
+    registry: { version: 1, targets },
+    runCheck: async (check) => check.type === "none" ? { ready: true, notApplicable: true } : { ready: ready.has(check.key) },
+    runCommand: async (spec) => {
+      calls.push(`start:${spec.command}`);
+      if (spec.command === "gateway") assert.ok(ready.has("workbridge") && ready.has("cua"));
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      ready.add(spec.command);
+      return { code: 0, stdout: "", stderr: "" };
+    }
+  });
+  const results = await supervisor.startAll({ autoOnly: true });
+  assert.ok(calls.indexOf("start:gateway") > calls.indexOf("start:workbridge"));
+  assert.ok(calls.indexOf("start:gateway") > calls.indexOf("start:cua"));
+  assert.equal(results.length, targets.length);
+  assert.equal(results[0].value.id, "gateway", "results retain registry order for dashboard caching");
+  assert.ok(results.every((r) => r.ok));
+});
+
+test("auto-start does not attempt a target when a required service fails", async () => {
+  const calls = [];
+  const make = (id, dependsOn = []) => ({
+    ...structuredClone(exampleTarget), id, startupPolicy: "auto", dependsOn, components: {},
+    lifecycle: { start: [{ command: id }], stop: [] },
+    checks: { server: { key: id }, tunnel: { type: "none" } }
+  });
+  const supervisor = new Supervisor({
+    registry: { version: 1, targets: [make("gateway", ["workbridge"]), make("workbridge")] },
+    runCheck: async (spec) => spec.type === "none" ? { ready: true, notApplicable: true } : { ready: false },
+    runCommand: async (spec) => {
+      calls.push(spec.command);
+      return { code: 1, stderr: "backend failed" };
+    }
+  });
+  const results = await supervisor.startAll({ autoOnly: true });
+  assert.deepEqual(calls, ["workbridge"]);
+  assert.equal(results[0].ok, false);
+  assert.match(results[0].error, /startup dependency workbridge failed/i);
+  assert.equal(results[1].ok, false);
+});

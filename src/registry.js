@@ -73,6 +73,12 @@ export function validateTarget(target) {
   if (typeof target.name !== "string" || !target.name.trim()) throw new Error("target.name is required.");
   if (target.enabled !== undefined && typeof target.enabled !== "boolean") throw new Error("target.enabled must be boolean.");
   if (!startupPolicies.has(target.startupPolicy || "manual")) throw new Error("target.startupPolicy is invalid.");
+  if (target.dependsOn !== undefined && (!Array.isArray(target.dependsOn) || target.dependsOn.some((id) => typeof id !== "string" || !/^[a-z0-9][a-z0-9._-]*$/i.test(id)))) {
+    throw new Error(`${target.id}.dependsOn must contain target ids.`);
+  }
+  if (target.dependsOn && new Set(target.dependsOn).size !== target.dependsOn.length) {
+    throw new Error(`${target.id} has a duplicate startup dependency.`);
+  }
   assertObject(target.lifecycle, `${target.id}.lifecycle`);
   for (const phase of ["start", "stop"]) {
     if (!Array.isArray(target.lifecycle[phase])) throw new Error(`${target.id}.lifecycle.${phase} must be an array.`);
@@ -101,6 +107,25 @@ export function validateRegistry(input) {
     if (ids.has(target.id)) throw new Error(`Duplicate target id: ${target.id}`);
     ids.add(target.id);
   }
+  const byId = new Map(targets.map((target) => [target.id, target]));
+  const visiting = new Set();
+  const visited = new Set();
+  function visit(target) {
+    if (visiting.has(target.id)) throw new Error(`Startup dependency cycle involving ${target.id}.`);
+    if (visited.has(target.id)) return;
+    visiting.add(target.id);
+    for (const id of target.dependsOn || []) {
+      const prerequisite = byId.get(id);
+      if (!prerequisite) throw new Error(`${target.id} has unknown startup dependency ${id}.`);
+      if (target.startupPolicy !== "auto" || prerequisite.startupPolicy !== "auto" || prerequisite.enabled === false) {
+        throw new Error(`${target.id} startup dependencies must be auto-enabled targets: ${id}.`);
+      }
+      visit(prerequisite);
+    }
+    visiting.delete(target.id);
+    visited.add(target.id);
+  }
+  for (const target of targets) visit(target);
   return { version: 1, targets };
 }
 
