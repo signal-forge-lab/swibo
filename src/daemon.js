@@ -260,6 +260,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method !== "GET") return sendJson(res, 405, { error: "Method not allowed." });
     if (url.pathname === "/" || url.pathname === "/index.html") return serveStatic(res, "index.html", "text/html");
     if (url.pathname === "/app.js") return serveStatic(res, "app.js", "text/javascript");
+    if (url.pathname === "/status-freshness.js") return serveStatic(res, "status-freshness.js", "text/javascript");
     if (url.pathname === "/styles.css") return serveStatic(res, "styles.css", "text/css");
     if (url.pathname === "/swibo-icon.png") return serveBinary(res, iconBody, "image/png");
     sendJson(res, 404, { error: "Not found." });

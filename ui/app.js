@@ -1,3 +1,5 @@
+import { isStatusStale, nextFreshnessTransition } from "./status-freshness.js";
+
 const rows = document.querySelector("#target-rows");
 const connection = document.querySelector("#connection");
 const connectionLabel = document.querySelector("#connection-label");
@@ -16,6 +18,7 @@ let targetFilter = "all";
 let renderFingerprint = "";
 let openMenuTarget = null;
 let toastTimer;
+let freshnessTimer;
 let eventSource;
 const expandedTargets = new Set();
 const autoStartBusy = new Set();
@@ -72,7 +75,7 @@ function showToast(message, isError = false) {
 
 function stateClass(state) {
   const value = String(state || "STOPPED").toLowerCase();
-  if (["degraded", "starting", "stopping"].includes(value)) return "warn";
+  if (["degraded", "starting", "stopping", "stale"].includes(value)) return "warn";
   if (["error", "down"].includes(value)) return "danger";
   if (value === "ready") return "ready";
   return "stopped";
@@ -92,8 +95,9 @@ function actionButton(action, label, { disabled = false, component = "" } = {}) 
 }
 
 function runtimeControl(target) {
-  const state = String(target.state || "STOPPED");
-  const busy = actionBusy || ["STARTING", "STOPPING"].includes(state);
+  const stale = isStatusStale(target.checkedAt);
+  const state = stale ? "STALE" : String(target.state || "STOPPED");
+  const busy = actionBusy || stale || ["STARTING", "STOPPING"].includes(state);
   const stopped = state === "STOPPED";
   const primaryAction = stopped ? "start" : "stop";
   const primaryDisabled = busy || (primaryAction === "start" && !target.enabled);
@@ -107,8 +111,9 @@ function runtimeControl(target) {
 function componentControl(target, key) {
   const component = target.components?.[key];
   if (!component || component.notApplicable) return `${stateReadout("N/A", { muted: true })}<span></span>`;
-  const state = String(component.state || (component.ready ? "READY" : "STOPPED"));
-  const busy = actionBusy || ["STARTING", "STOPPING"].includes(state);
+  const stale = isStatusStale(target.checkedAt);
+  const state = stale ? "STALE" : String(component.state || (component.ready ? "READY" : "STOPPED"));
+  const busy = actionBusy || stale || ["STARTING", "STOPPING"].includes(state);
   const stopped = state === "STOPPED" || state === "N/A";
   const primaryAction = stopped ? "start" : "stop";
   const primaryDisabled = busy || (primaryAction === "start" && !target.enabled);
@@ -154,7 +159,7 @@ function checkDetail(check) {
 function componentDetailRow(target, key, label) {
   const check = target[key];
   if (!check || check.notApplicable) return "";
-  const state = checkState(check);
+  const state = isStatusStale(target.checkedAt) ? "STALE" : checkState(check);
   return `<div class="component-line">
     <span class="component-name">${escapeHtml(label)}</span>
     ${stateReadout(state)}
@@ -163,6 +168,7 @@ function componentDetailRow(target, key, label) {
 }
 
 function runtimeReason(target) {
+  if (isStatusStale(target.checkedAt)) return `Last observed ${target.state || "UNKNOWN"}; refresh to verify`;
   if (target.state !== "DEGRADED") return "Runtime = configured Server + Tunnel checks";
   const down = [];
   if (!target.server?.notApplicable && !target.server?.ready) down.push("Server");
@@ -222,11 +228,16 @@ function render() {
   const visibleTargets = targetFilter === "auto"
     ? targets.filter((target) => target.startupPolicy === "auto")
     : targets;
-  document.querySelector("#count-ready").textContent = targets.filter((target) => target.state === "READY").length;
-  document.querySelector("#count-degraded").textContent = targets.filter((target) => target.state === "DEGRADED").length;
-  document.querySelector("#count-stopped").textContent = targets.filter((target) => target.state === "STOPPED").length;
+  const staleCount = targets.filter((target) => isStatusStale(target.checkedAt)).length;
+  updated.textContent = snapshot.updatedAt
+    ? `Updated ${formatTimestamp(snapshot.updatedAt)}${staleCount ? ` · ${staleCount} stale` : ""}`
+    : "Waiting for fresh check";
+  updated.classList.toggle("stale", staleCount > 0);
+  document.querySelector("#count-ready").textContent = targets.filter((target) => !isStatusStale(target.checkedAt) && target.state === "READY").length;
+  document.querySelector("#count-degraded").textContent = targets.filter((target) => !isStatusStale(target.checkedAt) && target.state === "DEGRADED").length;
+  document.querySelector("#count-stopped").textContent = targets.filter((target) => !isStatusStale(target.checkedAt) && target.state === "STOPPED").length;
   document.querySelector("#count-total").textContent = targets.length;
-  document.querySelector("#target-count").textContent = `${targets.length} target${targets.length === 1 ? "" : "s"}`;
+  document.querySelector("#target-count").textContent = `${targets.length} target${targets.length === 1 ? "" : "s"}${staleCount ? ` · ${staleCount} stale` : ""}`;
   document.querySelector("#auto-start-count").textContent = `${autoStartCount} auto start`;
   document.querySelectorAll("[data-target-filter]").forEach((button) => {
     const active = button.dataset.targetFilter === targetFilter;
@@ -245,13 +256,24 @@ function formatTimestamp(value) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+function scheduleFreshnessUpdate() {
+  clearTimeout(freshnessTimer);
+  const delay = nextFreshnessTransition(snapshot.targets);
+  if (delay === null) return;
+  freshnessTimer = setTimeout(() => {
+    renderFingerprint = "";
+    render();
+    scheduleFreshnessUpdate();
+  }, delay);
+}
+
 function applySnapshot(value) {
   snapshot = value;
   connection.dataset.state = "ready";
   connectionLabel.textContent = "Daemon connected";
-  updated.textContent = snapshot.updatedAt ? `Updated ${formatTimestamp(snapshot.updatedAt)}` : "Waiting for fresh check";
   renderFingerprint = "";
   render();
+  scheduleFreshnessUpdate();
 }
 
 async function refresh({ silent = false } = {}) {

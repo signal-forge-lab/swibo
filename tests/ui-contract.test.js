@@ -6,6 +6,16 @@ const html = fs.readFileSync(new URL("../ui/index.html", import.meta.url), "utf8
 const js = fs.readFileSync(new URL("../ui/app.js", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../ui/styles.css", import.meta.url), "utf8");
 
+
+test("cached freshness module loads from the loopback daemon without polling", () => {
+  const daemon = fs.readFileSync(new URL("../src/daemon.js", import.meta.url), "utf8");
+  assert.match(js, /from "\.\/status-freshness\.js"/);
+  assert.match(daemon, /url\.pathname === "\/status-freshness\.js"/);
+  assert.match(js, /clearTimeout\(freshnessTimer\)/);
+  assert.match(js, /nextFreshnessTransition\(snapshot\.targets\)/);
+  assert.doesNotMatch(js, /setInterval\(/);
+});
+
 test("dashboard uses compact Target / Runtime / Monitor / row-menu columns", () => {
   for (const label of ["Target", "Runtime", "Monitor"]) {
     assert.match(html, new RegExp(`>${label}<`));
@@ -114,6 +124,8 @@ test("dashboard uses explicit refresh plus SSE instead of periodic polling", () 
   assert.match(js, /new EventSource\("\/api\/events"\)/);
   assert.match(js, /api\("\/api\/refresh", \{ method: "POST" \}\)/);
   assert.doesNotMatch(js, /setInterval\(/);
+  assert.match(js, /nextFreshnessTransition/);
+  assert.match(js, /scheduleFreshnessUpdate/);
   assert.match(js, /visibilitychange/);
 });
 
