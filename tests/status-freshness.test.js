@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { STALE_AFTER_MS, isStatusStale, nextFreshnessTransition } from "../ui/status-freshness.js";
+import fs from "node:fs";
+import vm from "node:vm";
+const source = fs.readFileSync(new URL("../ui/app.js", import.meta.url), "utf8");
+const begin = source.indexOf("const STALE_AFTER_MS");
+const end = source.indexOf("const rows = document.querySelector");
+assert.ok(begin >= 0 && end > begin, "freshness helpers must remain at the start of app.js");
+const { STALE_AFTER_MS, isStatusStale, nextFreshnessTransition } = vm.runInNewContext(
+  source.slice(begin, end) + "\n({ STALE_AFTER_MS, isStatusStale, nextFreshnessTransition })",
+  { Date, Number, Math },
+);
 
 const now = Date.parse("2026-10-13T08:00:00.000Z");
 const at = (ms) => new Date(now - ms).toISOString();

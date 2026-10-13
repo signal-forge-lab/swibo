@@ -9,8 +9,8 @@ const css = fs.readFileSync(new URL("../ui/styles.css", import.meta.url), "utf8"
 
 test("cached freshness module loads from the loopback daemon without polling", () => {
   const daemon = fs.readFileSync(new URL("../src/daemon.js", import.meta.url), "utf8");
-  assert.match(js, /from "\.\/status-freshness\.js"/);
-  assert.match(daemon, /url\.pathname === "\/status-freshness\.js"/);
+  assert.match(js, /const STALE_AFTER_MS = 2 \* 60 \* 1000/);
+  assert.doesNotMatch(daemon, /status-freshness\.js/);
   assert.match(js, /clearTimeout\(freshnessTimer\)/);
   assert.match(js, /nextFreshnessTransition\(snapshot\.targets\)/);
   assert.doesNotMatch(js, /setInterval\(/);
