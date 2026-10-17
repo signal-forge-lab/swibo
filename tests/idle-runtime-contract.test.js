@@ -25,3 +25,10 @@ test("daemon exposes event-driven SSE without a monitoring timer", () => {
 test("CLI status preserves fresh semantics through the explicit refresh endpoint", () => {
   assert.match(cli, /command === "status"[\s\S]*request\("\/api\/refresh", \{ method: "POST" \}\)/);
 });
+
+test("scoped refresh endpoint checks only the requested target without lifecycle actions", () => {
+  const block = daemon.match(/req\.method === "POST" && scopedRefreshMatch[\s\S]*?\n  \}/)?.[0] || "";
+  assert.match(daemon, /scopedRefreshMatch\s*=\s*url\.pathname\.match/);
+  assert.match(block, /refreshTargetStatus\(/);
+  assert.doesNotMatch(block, /refreshAllStatus\(|statusAll\(|\.start\(|\.stop\(|\.restart\(/);
+});

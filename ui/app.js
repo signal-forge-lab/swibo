@@ -18,6 +18,18 @@ function nextFreshnessTransition(targets, now = Date.now()) {
   return Number.isFinite(next) ? Math.min(Math.ceil(next) + 20, 2_147_483_647) : null;
 }
 
+function isVerifiedActionAllowed(target, action, component = "") {
+  if (!target || !["start", "stop", "restart"].includes(action)) return false;
+  const observed = component ? target.components?.[component] : target;
+  if (!observed || observed.notApplicable) return false;
+  if (["STARTING", "STOPPING"].includes(observed.state)) return false;
+  if (action !== "stop" && target.enabled === false) return false;
+  if (action === "restart") return true;
+  if (!observed.state) return false;
+  const requiredAction = ["STOPPED", "N/A"].includes(observed.state) ? "start" : "stop";
+  return action === requiredAction;
+}
+
 const rows = document.querySelector("#target-rows");
 const connection = document.querySelector("#connection");
 const connectionLabel = document.querySelector("#connection-label");
@@ -115,14 +127,14 @@ function actionButton(action, label, { disabled = false, component = "" } = {}) 
 function runtimeControl(target) {
   const stale = isStatusStale(target.checkedAt);
   const state = stale ? "STALE" : String(target.state || "STOPPED");
-  const busy = actionBusy || stale || ["STARTING", "STOPPING"].includes(state);
-  const stopped = state === "STOPPED";
+  const busy = actionBusy || (!stale && ["STARTING", "STOPPING"].includes(state));
+  const stopped = target.state === "STOPPED";
   const primaryAction = stopped ? "start" : "stop";
   const primaryDisabled = busy || (primaryAction === "start" && !target.enabled);
-  const restartDisabled = busy || stopped || !target.enabled;
+  const restartDisabled = busy || (!stale && stopped) || !target.enabled;
   return `${stateReadout(state)}<span class="inline-controls">
-    ${actionButton(primaryAction, `${primaryAction === "start" ? "Start" : "Stop"} Runtime`, { disabled: primaryDisabled })}
-    ${actionButton("restart", "Restart Runtime", { disabled: restartDisabled })}
+    ${actionButton(primaryAction, `${stale ? "Check and " : ""}${primaryAction === "start" ? "Start" : "Stop"} Runtime`, { disabled: primaryDisabled })}
+    ${actionButton("restart", `${stale ? "Check and " : ""}Restart Runtime`, { disabled: restartDisabled })}
   </span>`;
 }
 
@@ -131,15 +143,15 @@ function componentControl(target, key) {
   if (!component || component.notApplicable) return `${stateReadout("N/A", { muted: true })}<span></span>`;
   const stale = isStatusStale(target.checkedAt);
   const state = stale ? "STALE" : String(component.state || (component.ready ? "READY" : "STOPPED"));
-  const busy = actionBusy || stale || ["STARTING", "STOPPING"].includes(state);
-  const stopped = state === "STOPPED" || state === "N/A";
+  const busy = actionBusy || (!stale && ["STARTING", "STOPPING"].includes(state));
+  const stopped = ["STOPPED", "N/A"].includes(component.state);
   const primaryAction = stopped ? "start" : "stop";
   const primaryDisabled = busy || (primaryAction === "start" && !target.enabled);
-  const restartDisabled = busy || stopped || !target.enabled;
+  const restartDisabled = busy || (!stale && stopped) || !target.enabled;
   const label = component.label || key;
   return `${stateReadout(state)}<span class="inline-controls">
-    ${actionButton(primaryAction, `${primaryAction === "start" ? "Start" : "Stop"} ${label}`, { disabled: primaryDisabled, component: key })}
-    ${actionButton("restart", `Restart ${label}`, { disabled: restartDisabled, component: key })}
+    ${actionButton(primaryAction, `${stale ? "Check and " : ""}${primaryAction === "start" ? "Start" : "Stop"} ${label}`, { disabled: primaryDisabled, component: key })}
+    ${actionButton("restart", `${stale ? "Check and " : ""}Restart ${label}`, { disabled: restartDisabled, component: key })}
   </span>`;
 }
 
@@ -354,6 +366,33 @@ async function runAction(path, label) {
   }
 }
 
+async function runTargetAction(target, action, component = "") {
+  if (actionBusy) return;
+  const basePath = `/api/targets/${encodeURIComponent(target.id)}`;
+  const componentPath = component ? `/components/${encodeURIComponent(component)}` : "";
+  if (isStatusStale(target.checkedAt)) {
+    actionBusy = true;
+    renderFingerprint = "";
+    render();
+    try {
+      const verified = await api(`${basePath}/refresh`, { method: "POST" });
+      await syncCachedStatus();
+      if (!isVerifiedActionAllowed(verified, action, component)) {
+        showToast(`${target.name} changed or is unavailable. Review the refreshed state and select an action again.`, true);
+        return;
+      }
+    } catch (error) {
+      showToast(`Unable to check ${target.name}: ${error.message}`, true);
+      return;
+    } finally {
+      actionBusy = false;
+      renderFingerprint = "";
+      render();
+    }
+  }
+  await runAction(`${basePath}${componentPath}/${action}`, `${action} ${target.name}${component ? ` ${component}` : ""} completed`);
+}
+
 async function setAutoStart(target, enabled) {
   const registryTarget = snapshot.registry.targets.find((candidate) => candidate.id === target.id);
   if (!registryTarget || autoStartBusy.has(target.id)) return;
@@ -452,7 +491,7 @@ rows.addEventListener("click", async (event) => {
   if (componentButton) {
     const component = componentButton.dataset.component;
     const action = componentButton.dataset.componentAction;
-    await runAction(`/api/targets/${encodeURIComponent(id)}/components/${encodeURIComponent(component)}/${action}`, `${action} ${target.name} ${component} completed`);
+    await runTargetAction(target, action, component);
     return;
   }
 
@@ -464,7 +503,7 @@ rows.addEventListener("click", async (event) => {
     if (registryTarget) openEditor(registryTarget);
     return;
   }
-  await runAction(`/api/targets/${encodeURIComponent(id)}/${action}`, `${action} ${target.name} completed`);
+  await runTargetAction(target, action);
 });
 
 document.addEventListener("click", (event) => {

@@ -133,3 +133,19 @@ test("target details render each target's own last health-check timestamp", () =
   assert.match(js, /target\.checkedAt/);
   assert.doesNotMatch(js, /lastCheckedLabel/);
 });
+
+test("stale labels remain while operation buttons do not disable solely because of staleness", () => {
+  assert.match(js, /stale \? "STALE"/);
+  assert.doesNotMatch(js, /actionBusy \|\| stale \|\|/);
+  assert.match(js, /runTargetAction\(/);
+});
+
+test("stale operations preflight only their target and cannot blindly invoke a changed action", () => {
+  const body = js.match(/async function runTargetAction[\s\S]*?\n\}/)?.[0] || "";
+  assert.match(body, /isStatusStale\(target\.checkedAt\)/);
+  assert.match(body, /\/refresh/);
+  assert.match(body, /isVerifiedActionAllowed\(/);
+  assert.match(body, /return;/);
+  assert.match(body, /runAction\(/);
+  assert.doesNotMatch(body, /api\("\/api\/refresh"/);
+});

@@ -29,8 +29,13 @@ Swibo is a control layer, not a continuous health-monitoring system.
 - The dashboard performs fresh checks on initial load, explicit Refresh, and when the window becomes
   visible again. It must not periodically poll health while sitting idle.
 - Cached health states older than two minutes are displayed as STALE (last observed state, not an
-  assertion of current health). A one-shot client-side timer may update that label without a health request;
-  actions on stale status require an explicit refresh first.
+  assertion of current health). A one-shot client-side timer may update that label without a health request.
+- `POST /api/targets/:id/refresh` explicitly checks only the selected target, updates its
+  cached entry, and emits SSE. It does not change the last full-check timestamp.
+- Stale observations alone must not disable lifecycle controls. A Start/Stop/Restart click on stale
+  state checks only that target before executing the requested operation. If the fresh state makes
+  the originally selected action inappropriate, cancel and show the new state; never silently
+  reinterpret Start as Stop or vice versa. A failed check must block the operation.
 - Start/Stop/Restart operations update cached state from their lifecycle verification. Registry
   mutations refresh only the affected target when a check is needed.
 - `mcpctl status` is intentionally fresh and therefore uses `POST /api/refresh`.

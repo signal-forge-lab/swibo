@@ -166,6 +166,10 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/refresh") {
     return sendJson(res, 200, await refreshAllStatus());
   }
+  const scopedRefreshMatch = url.pathname.match(/^\/api\/targets\/([^/]+)\/refresh$/);
+  if (req.method === "POST" && scopedRefreshMatch) {
+    return sendJson(res, 200, await refreshTargetStatus(decodeURIComponent(scopedRefreshMatch[1])));
+  }
   if (req.method === "GET" && url.pathname === "/api/events") {
     openEventStream(req, res);
     return;

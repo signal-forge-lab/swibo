@@ -72,6 +72,10 @@ fn request_route(kind: &str, target_id: Option<&str>, component: Option<&str>) -
     match kind {
         "status" => Ok(("GET", "/api/status".into())),
         "refresh" => Ok(("POST", "/api/refresh".into())),
+        "target-refresh" => {
+            let id = target_id.filter(|id| valid_id(id)).ok_or("Invalid target ID")?;
+            Ok(("POST", format!("/api/targets/{id}/refresh")))
+        }
         "start-all" => Ok(("POST", "/api/start-all".into())),
         "stop-all" => Ok(("POST", "/api/stop-all".into())),
         "start" | "stop" | "restart" => {
@@ -276,6 +280,9 @@ mod tests {
     fn routes_are_strictly_allowlisted() {
         assert_eq!(request_route("status", None, None).unwrap(), ("GET", "/api/status".into()));
         assert_eq!(request_route("refresh", None, None).unwrap(), ("POST", "/api/refresh".into()));
+        assert_eq!(request_route("target-refresh", Some("runtime-1"), None).unwrap(),
+                   ("POST", "/api/targets/runtime-1/refresh".into()));
+        assert!(request_route("target-refresh", Some("../unsafe"), None).is_err());
         assert_eq!(request_route("start-all", None, None).unwrap(), ("POST", "/api/start-all".into()));
         assert_eq!(request_route("stop-all", None, None).unwrap(), ("POST", "/api/stop-all".into()));
         assert_eq!(request_route("start", Some("runtime-1"), None).unwrap(), ("POST", "/api/targets/runtime-1/start".into()));

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import vm from 'node:vm';
 
 const root = path.resolve(import.meta.dirname, '..');
 const html = fs.readFileSync(path.join(root, 'ui-shell', 'unified.html'), 'utf8');
@@ -57,6 +58,22 @@ test('unified status honors cached freshness without periodic status requests', 
   assert.match(html, /scheduleFreshnessRender\(\)/);
   assert.match(html, /clearTimeout\(freshnessTimer\)/);
   assert.match(html, /status\.className = stale \? "stale"/);
-  assert.match(html, /control\.disabled = busy \|\| !t\.enabled \|\| stale/);
+  assert.match(html, /control\.disabled = busy \|\| !t\.enabled/);
+  assert.match(html, /btn\.disabled = busy \|\| !t\.enabled/);
+  assert.doesNotMatch(html, /disabled = busy \|\| !t\.enabled \|\| stale/);
+  assert.match(html, /request\("target-refresh", btn\.dataset\.target\)/);
+  assert.match(html, /isVerifiedActionAllowed\(checked, operation, btn\.dataset\.component\)/);
+  assert.match(bridge, /"target-refresh"/);
   assert.doesNotMatch(html, /setInterval\s*\(/);
+});
+
+test('unified preview rejects changed primary actions after scoped preflight', () => {
+  const decision = html.match(/function isVerifiedActionAllowed[\s\S]*?\n\}/)?.[0];
+  assert.ok(decision);
+  const fn = vm.runInNewContext([decision, 'isVerifiedActionAllowed'].join('\n'));
+  assert.equal(fn({ enabled: true, state: 'READY' }, 'start'), false);
+  assert.equal(fn({ enabled: true, state: 'READY' }, 'stop'), true);
+  assert.equal(fn({ enabled: true, components: { monitor: { state: 'STOPPED' } } }, 'start', 'monitor'), true);
+  assert.equal(fn({ enabled: true, components: { monitor: { state: 'READY' } } }, 'start', 'monitor'), false);
+  assert.equal(fn(null, 'restart'), false);
 });

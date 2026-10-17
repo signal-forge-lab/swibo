@@ -122,6 +122,16 @@ function targetIsStale(target, now = Date.now()) {
   const timestamp = Date.parse(target?.checkedAt ?? "");
   return !Number.isFinite(timestamp) || now - timestamp >= CACHE_STALE_AFTER_MS;
 }
+function isVerifiedActionAllowed(target, action, component = "") {
+  if (!target || !["start", "stop", "restart"].includes(action)) return false;
+  const observed = component ? target.components?.[component] : target;
+  if (!observed || observed.notApplicable) return false;
+  if (["STARTING", "STOPPING"].includes(observed.state)) return false;
+  if (action !== "stop" && target.enabled === false) return false;
+  if (action === "restart") return true;
+  if (!observed.state) return false;
+  return action === (["STOPPED", "N/A"].includes(observed.state) ? "start" : "stop");
+}
 function scheduleFreshnessRender() {
   clearTimeout(freshnessTimer);
   let earliest = Infinity;
@@ -181,8 +191,8 @@ function render() {
     const actions = document.createElement("div");
     actions.className = "actions";
     for (const [kind, label] of [["start","▶"],["stop","■"],["restart","↻"]]) {
-      const btn = button(label, kind+" "+t.name, kind, t.id);
-      btn.disabled = busy || !t.enabled || stale;
+      const btn = button(label, (stale ? "Check and " : "")+kind+" "+t.name, kind, t.id);
+      btn.disabled = busy || !t.enabled;
       actions.append(btn);
     }
     const monitors = document.createElement("div");
@@ -190,8 +200,8 @@ function render() {
     for (const [key, c] of Object.entries(t.components || {})) {
       if (c.notApplicable) continue;
       for (const [action, symbol] of [["start","▶"],["stop","■"],["restart","↻"]]) {
-        const control = button(symbol, action+" "+(c.label||key), "component-"+action, t.id, key);
-        control.disabled = busy || !t.enabled || stale;
+        const control = button(symbol, (stale ? "Check and " : "")+action+" "+(c.label||key), "component-"+action, t.id, key);
+        control.disabled = busy || !t.enabled;
         monitors.append(control);
       }
     }
@@ -503,6 +513,17 @@ targets.addEventListener("click", async (event) => {
       const enabled = btn.getAttribute("aria-checked") !== "true";
       await api("unified_swibo_autostart", {targetId:btn.dataset.autostartTarget, enabled});
     } else {
+      const target = snapshot.targets?.find(t => t.id === btn.dataset.target);
+      if (!target) throw Error("Target is no longer registered");
+      if (targetIsStale(target)) {
+        const checked = await request("target-refresh", btn.dataset.target);
+        snapshot = await request("status");
+        const operation = btn.dataset.action.replace(/^component-/, "");
+        if (!isVerifiedActionAllowed(checked, operation, btn.dataset.component)) {
+          error.textContent = "Target state changed or is unavailable. Review status and select an action again.";
+          return;
+        }
+      }
       await request(btn.dataset.action, btn.dataset.target, btn.dataset.component);
     }
     snapshot = await request("status");

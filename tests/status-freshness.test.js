@@ -6,8 +6,8 @@ const source = fs.readFileSync(new URL("../ui/app.js", import.meta.url), "utf8")
 const begin = source.indexOf("const STALE_AFTER_MS");
 const end = source.indexOf("const rows = document.querySelector");
 assert.ok(begin >= 0 && end > begin, "freshness helpers must remain at the start of app.js");
-const { STALE_AFTER_MS, isStatusStale, nextFreshnessTransition } = vm.runInNewContext(
-  source.slice(begin, end) + "\n({ STALE_AFTER_MS, isStatusStale, nextFreshnessTransition })",
+const { STALE_AFTER_MS, isStatusStale, nextFreshnessTransition, isVerifiedActionAllowed } = vm.runInNewContext(
+  source.slice(begin, end) + "\n({ STALE_AFTER_MS, isStatusStale, nextFreshnessTransition, isVerifiedActionAllowed })",
   { Date, Number, Math },
 );
 
@@ -36,4 +36,24 @@ test("one-shot transition is scheduled for the earliest fresh target", () => {
 test("future timestamps do not wrap JavaScript timeout limits", () => {
   const future = new Date(now + 10_000_000_000).toISOString();
   assert.equal(nextFreshnessTransition([{ checkedAt: future }], now), 2_147_483_647);
+});
+
+test("only the originally requested start or stop can execute after a fresh observation", () => {
+  assert.equal(isVerifiedActionAllowed({ state: "STOPPED", enabled: true }, "start"), true);
+  assert.equal(isVerifiedActionAllowed({ state: "READY", enabled: true }, "start"), false);
+  assert.equal(isVerifiedActionAllowed({ state: "READY", enabled: true }, "stop"), true);
+  assert.equal(isVerifiedActionAllowed({ state: "STOPPED", enabled: true }, "stop"), false);
+  assert.equal(isVerifiedActionAllowed({ state: "STARTING", enabled: true }, "stop"), false);
+  assert.equal(isVerifiedActionAllowed({ state: "READY", enabled: false }, "start"), false);
+  assert.equal(isVerifiedActionAllowed({ state: "READY", enabled: true }, "restart"), true);
+  assert.equal(isVerifiedActionAllowed(null, "restart"), false);
+});
+
+test("component actions use the newly checked component, not cached target readiness", () => {
+  const target = { enabled: true, state: "READY", components: { monitor: { state: "STOPPED" } } };
+  assert.equal(isVerifiedActionAllowed(target, "start", "monitor"), true);
+  assert.equal(isVerifiedActionAllowed(target, "stop", "monitor"), false);
+  assert.equal(isVerifiedActionAllowed(target, "restart", "monitor"), true);
+  assert.equal(isVerifiedActionAllowed(target, "start", "unknown"), false);
+  assert.equal(isVerifiedActionAllowed({ enabled: true, components: { monitor: { state: "N/A", notApplicable: true } } }, "start", "monitor"), false);
 });
