@@ -44,6 +44,32 @@ Daemon only:
 node src/cli.js daemon start
 ```
 
+### Windows: independently managed daemon
+
+Swibo is a local control plane, not just a status display: it owns explicit
+target start/stop/restart actions and optional automatic startup. Its Tauri
+desktop is a client of a separate loopback-only Node daemon, so the control
+plane can continue working while the desktop is closed.
+
+The desktop only ensures the daemon is started at desktop launch; it does
+not repair a later daemon exit. On Windows, install the daemon as a per-user
+Task Scheduler task instead. It starts on logon and can restart on failure
+up to 30 times at one-minute intervals. No periodic UI status sweep is added.
+
+```powershell
+pwsh -NoProfile -File scripts/manage-daemon-task.ps1 -Mode Status
+pwsh -NoProfile -File scripts/manage-daemon-task.ps1 -Mode Install
+```
+
+To transfer an existing standalone daemon into Task Scheduler, explicitly use
+`-Mode Install -AdoptRunning`. Only the management daemon is transferred;
+target services are not stopped. Repeating Install when an owned task is
+already running is a no-op. `-Mode Uninstall` removes only the task.
+Use `http://127.0.0.1:17991/api/health` to check runtime readiness.
+An exit code indicating failure is retried by the scheduler; an intentional
+clean exit or a process that remains alive but hangs is not automatically
+repaired by this policy.
+
 ## CLI
 
 ```text

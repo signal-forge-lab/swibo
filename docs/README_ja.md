@@ -44,6 +44,30 @@ Daemon のみ:
 node src/cli.js daemon start
 ```
 
+### Windowsの管理daemon常駐
+
+Swiboは状態表示だけでなく、各Targetの起動・停止・自動起動も担当します。
+Tauri Desktop UIとNode.jsのloopback専用daemonは別プロセスで、
+UIを閉じてもdaemonを継続できます。
+
+Desktop起動時だけのdaemon起動では、その後のdaemon異常終了を検出できません。
+Windowsではタスクスケジューラに管理daemonの所有権を移す運用を推奨します。
+ログオン時に起動し、異常終了時に1分間隔で最大30回の再起動を試みます。
+正常終了・応答不能のすべてを自動修復する仕組みではありません。
+
+```powershell
+pwsh -NoProfile -File scripts/manage-daemon-task.ps1 -Mode Status
+pwsh -NoProfile -File scripts/manage-daemon-task.ps1 -Mode Install
+```
+
+既存の手動daemonをWindowsタスクへ引き継ぐ場合に限って、
+`-Mode Install -AdoptRunning` を使用します。
+daemonの所有権だけを移し、管理対象Targetには停止操作を行いません。
+既にタスクで稼働中なら同じInstallの再実行は無変更で終了します。
+`-Mode Uninstall` はタスク登録を解除します。
+
+稼働確認: `http://127.0.0.1:17991/api/health`
+
 ## CLI
 
 ```text
