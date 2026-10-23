@@ -79,14 +79,3 @@ export function runCommand(spec) {
     });
   });
 }
-
-export function terminateOwnedProcess(pid) {
-  if (!Number.isInteger(pid)) return false;
-  try {
-    process.kill(pid, 0);
-    process.kill(pid, "SIGTERM");
-    return true;
-  } catch {
-    return false;
-  }
-}

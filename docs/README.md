@@ -110,7 +110,7 @@ Configure real services in the live registry through the UI/API instead of commi
 
 Swibo can supervise local AI utilities that are not MCP servers when they expose a deterministic lifecycle and a side-effect-free readiness check. Keep product-specific behavior in the tool itself; Swibo should only own process lifecycle and observation.
 
-For example, BrowserSkill can be represented by starting its foreground daemon as a detached owned process, checking its loopback WebSocket port, and using the tool's own stop command:
+For example, BrowserSkill can be represented by starting its foreground daemon as a detached process, checking its loopback WebSocket port, and using the tool's own stop command:
 
 ```json
 {
@@ -123,13 +123,11 @@ For example, BrowserSkill can be represented by starting its foreground daemon a
       "command": "${HOME}/.local/bin/bsk.exe",
       "args": ["daemon", "start", "--foreground"],
       "detached": true,
-      "processKey": "server",
       "unlessReady": "server",
       "waitFor": "server"
     }],
     "stop": [
-      { "command": "${HOME}/.local/bin/bsk.exe", "args": ["daemon", "stop"] },
-      { "kind": "terminate", "processKey": "server" }
+      { "command": "${HOME}/.local/bin/bsk.exe", "args": ["daemon", "stop"] }
     ]
   },
   "checks": {
@@ -138,6 +136,10 @@ For example, BrowserSkill can be represented by starting its foreground daemon a
   }
 }
 ```
+
+Swibo does not terminate services using a cached PID alone. Legacy
+`kind: "terminate"` and `processKey` registry fields are unsupported.
+Use a target-owned stop command that verifies process identity.
 
 This is a lifecycle target, not an MCP declaration. Browser extension installation and browser permission prompts remain outside Swibo.
 

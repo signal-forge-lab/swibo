@@ -63,6 +63,22 @@ test("validateRegistry rejects shell command strings", () => {
   );
 });
 
+test("validateRegistry rejects unsafe bare-PID lifecycle termination", () => {
+  const byPid = target();
+  byPid.lifecycle.stop = [{ kind: "terminate", processKey: "server" }];
+  assert.throws(
+    () => validateRegistry({ version: 1, targets: [byPid] }),
+    /kind=terminate is unsupported/i
+  );
+
+  const byKey = target();
+  byKey.lifecycle.start = [{ command: "node", args: ["server.js"], processKey: "server" }];
+  assert.throws(
+    () => validateRegistry({ version: 1, targets: [byKey] }),
+    /processKey is unsupported/i
+  );
+});
+
 test("validateRegistry accepts optional independently managed components", () => {
   const registry = validateRegistry({ version: 1, targets: [target()] });
   assert.equal(registry.targets[0].components.monitor.label, "Monitor");

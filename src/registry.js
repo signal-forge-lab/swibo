@@ -15,10 +15,10 @@ function assertObject(value, label) {
 function validateCommand(spec, label) {
   assertObject(spec, label);
   if (spec.kind === "terminate") {
-    if (!spec.processKey || typeof spec.processKey !== "string") {
-      throw new Error(`${label}.processKey is required for terminate actions.`);
-    }
-    return;
+    throw new Error(`${label}.kind=terminate is unsupported; use a target-owned stop command.`);
+  }
+  if (spec.processKey !== undefined) {
+    throw new Error(`${label}.processKey is unsupported; use a target-owned lifecycle command.`);
   }
   if (typeof spec.command !== "string" || !spec.command.trim()) {
     throw new Error(`${label}.command is required.`);

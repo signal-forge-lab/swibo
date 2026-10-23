@@ -100,6 +100,11 @@ Use the existing registry schema and tests as the source of truth for supported 
 
 1. Keep `command` and `args` separate. Never encode shell pipelines, `&&`, redirections, or compound shell strings into a registry command.
 2. Prefer an existing target-owned start/stop wrapper when one exists. Swibo should orchestrate it, not duplicate target-specific lifecycle knowledge.
+   Bare PID termination is not a supported lifecycle action: reject legacy
+   `kind: "terminate"` and `processKey` configurations. Do not use the
+   daemon's transient memory as evidence that a PID still belongs to the target.
+   Migrate old targets to an identity-verifying target-owned stop command
+   before upgrading the daemon.
 3. Start and stop must be idempotent. Repeated Start on READY and repeated Stop on STOPPED must be safe.
    An explicit Restart always invokes the target-owned idempotent stop wrapper,
    even when readiness says STOPPED; the wrapper must safely identify its process.

@@ -108,7 +108,7 @@ Registry 内で Swibo の platform 固有 state 領域を参照する場合は `
 
 SwiboはMCP ServerでないローカルAIユーティリティも、決定的なlifecycleと副作用のないreadiness checkを持つ場合は監督できます。製品固有の処理は対象ツール側に残し、Swiboはprocess lifecycleと状態観測だけを担当します。
 
-たとえばBrowserSkillは、foreground daemonをdetachedなowned processとして起動し、loopbackのWebSocket portで状態確認し、停止にはBrowserSkill自身のstop commandを使うTargetとして表現できます。
+たとえばBrowserSkillは、foreground daemonをdetachedなプロセスとして起動し、loopbackのWebSocket portで状態確認し、停止にはBrowserSkill自身のstop commandを使うTargetとして表現できます。
 
 ```json
 {
@@ -121,13 +121,11 @@ SwiboはMCP ServerでないローカルAIユーティリティも、決定的な
       "command": "${HOME}/.local/bin/bsk.exe",
       "args": ["daemon", "start", "--foreground"],
       "detached": true,
-      "processKey": "server",
       "unlessReady": "server",
       "waitFor": "server"
     }],
     "stop": [
-      { "command": "${HOME}/.local/bin/bsk.exe", "args": ["daemon", "stop"] },
-      { "kind": "terminate", "processKey": "server" }
+      { "command": "${HOME}/.local/bin/bsk.exe", "args": ["daemon", "stop"] }
     ]
   },
   "checks": {
@@ -136,6 +134,10 @@ SwiboはMCP ServerでないローカルAIユーティリティも、決定的な
   }
 }
 ```
+
+Swiboは保存済みPIDだけを根拠にサービスを強制終了しません。
+旧`kind: "terminate"`と`processKey`はサポート対象外です。
+停止時はサービス自身のコマンドでプロセスの同一性を検証してください。
 
 これはlifecycle管理用Targetであり、MCP宣言ではありません。Browser extensionの導入やブラウザ権限確認はSwiboの責務外です。
 

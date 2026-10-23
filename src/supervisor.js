@@ -1,5 +1,5 @@
 import { runCheck as defaultRunCheck } from "./checks.js";
-import { runCommand as defaultRunCommand, terminateOwnedProcess } from "./runner.js";
+import { runCommand as defaultRunCommand } from "./runner.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -49,7 +49,6 @@ export class Supervisor {
     this.wait = wait;
     this.operations = new Map();
     this.componentOperations = new Map();
-    this.ownedPids = new Map();
     this.lastErrors = new Map();
     this.componentErrors = new Map();
     this.statusAllInFlight = null;
@@ -119,7 +118,6 @@ export class Supervisor {
       server,
       tunnel,
       components: Object.fromEntries(componentResults),
-      ownedPids: Object.fromEntries(this.ownedPids.get(target.id) || []),
       error: this.lastErrors.get(target.id) || ""
     };
   }
@@ -169,23 +167,10 @@ export class Supervisor {
       const current = await this.runCheck(target.checks[action.unlessReady]);
       if (current.ready) return;
     }
-    if (action.kind === "terminate") {
-      const pids = this.ownedPids.get(target.id);
-      const pid = pids?.get(action.processKey);
-      if (pid) {
-        terminateOwnedProcess(pid);
-        pids.delete(action.processKey);
-      }
-      return;
-    }
     const result = await this.runCommand(action);
     if (result.code !== 0) {
       const detail = (result.stderr || result.stdout || `exit ${result.code}`).trim();
       throw new Error(`${target.name}: ${detail}`);
-    }
-    if (action.processKey && result.pid) {
-      if (!this.ownedPids.has(target.id)) this.ownedPids.set(target.id, new Map());
-      this.ownedPids.get(target.id).set(action.processKey, result.pid);
     }
     if (action.waitFor) await this.waitForCheck(target, action.waitFor, true, action.waitTimeoutMs || 30000);
   }
