@@ -50,6 +50,7 @@ h1 { font-size: 16px; line-height: 1.2; font-weight: 700; }
 h2 { font-size: 17px; font-weight: 680; }
 .brand p, .panel-head p { margin-top: 3px; color: var(--text-3); font-size: 12px; }
 .connection { display: inline-flex; align-items: center; gap: 9px; color: var(--text-2); font-size: 12px; }
+.connection-actions { display: inline-flex; align-items: center; gap: 14px; }
 .connection[data-state="ready"] .lamp { background: var(--ready); }
 .connection[data-state="error"] { color: var(--danger); }
 .connection[data-state="error"] .lamp { background: var(--danger); }

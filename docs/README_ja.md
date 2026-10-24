@@ -54,17 +54,25 @@ Desktop起動時だけのdaemon起動では、その後のdaemon異常終了を�
 Windowsではタスクスケジューラに管理daemonの所有権を移す運用を推奨します。
 ログオン時に起動し、異常終了時に1分間隔で最大30回の再起動を試みます。
 正常終了・応答不能のすべてを自動修復する仕組みではありません。
+デーモンはPowerShellの非表示ウィンドウで起動するため、通常のPC操作中に
+黒いNode.jsコンソールを誤って閉じることがなくなります。
 
 ```powershell
 pwsh -NoProfile -File scripts/manage-daemon-task.ps1 -Mode Status
 pwsh -NoProfile -File scripts/manage-daemon-task.ps1 -Mode Install
 ```
 
-既存の手動daemonをWindowsタスクへ引き継ぐ場合に限って、
+既存の手動daemonや、旧Node.js直起動タスクから非表示方式へ移行する場合、
 `-Mode Install -AdoptRunning` を使用します。
 daemonの所有権だけを移し、管理対象Targetには停止操作を行いません。
 既にタスクで稼働中なら同じInstallの再実行は無変更で終了します。
 `-Mode Uninstall` はタスク登録を解除します。
+
+専用モニターの右上には「Stop daemon」があります。停止後も各ランタイムは
+稼働し続け、モニターはデーモン停止用のローカル画面へ切り替わります。
+「Start daemon」でWindowsタスクを再起動してダッシュボードへ戻れます。
+Windows版にはネイティブの「Daemon」メニューもあり、画面が読み込めない
+場合もStart/Stopできます。全ランタイムの「Stop all runtimes」とは別操作です。
 
 稼働確認: `http://127.0.0.1:17991/api/health`
 

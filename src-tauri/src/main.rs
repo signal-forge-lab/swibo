@@ -4,6 +4,7 @@ mod unified_bridge;
 
 use std::{
     env, fs,
+    io::{Read, Write},
     net::{TcpStream, ToSocketAddrs},
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -15,11 +16,13 @@ use std::{
 use std::os::windows::process::CommandExt;
 
 use tauri::{
+    menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
     webview::{NewWindowResponse, Url, WebviewWindowBuilder},
     Manager, WebviewUrl,
 };
 
 const DASHBOARD_URL: &str = "http://127.0.0.1:17991/";
+const STOPPED_URL: &str = "http://tauri.localhost/index.html";
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
@@ -43,9 +46,14 @@ fn main() {
             unified_bridge::unified_swibo_registry,
             unified_bridge::unified_swibo_autostart,
             unified_bridge::unified_swibo_watch,
-            unified_bridge::unified_loctl_request
+            unified_bridge::unified_loctl_request,
+            swibo_daemon_start,
+            swibo_daemon_stop
         ])
         .setup(move |app| {
+            app.manage(root.clone());
+            #[cfg(target_os = "windows")]
+            install_daemon_menu(app, root.clone())?;
             let mut window = WebviewWindowBuilder::new(app, "main", initial.clone())
                 .title(if unified_preview { "Swibo + Loctl Preview" } else { "Swibo" })
                 .inner_size(1320.0, 820.0)
@@ -114,8 +122,126 @@ fn endpoint_reachable(url: &Url) -> bool {
         .any(|address| TcpStream::connect_timeout(&address, Duration::from_millis(200)).is_ok())
 }
 
+#[cfg(target_os = "windows")]
+fn start_scheduled_daemon() -> Result<(), String> {
+    let output = Command::new("schtasks.exe")
+        .args(["/Run", "/TN", "SwiboDaemon"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map_err(|error| format!("Unable to run the Swibo Windows task: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "SwiboDaemon Windows task could not be started: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    Ok(())
+}
+
+fn start_daemon(root: &Path, url: &Url) -> Result<(), String> {
+    if endpoint_reachable(url) { return Ok(()); }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = root;
+        start_scheduled_daemon()?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut command = Command::new("node");
+        command.arg(root.join("src").join("daemon.js")).current_dir(root)
+            .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        command.spawn().map_err(|error| error.to_string())?;
+    }
+    for _ in 0..60 {
+        thread::sleep(Duration::from_millis(250));
+        if endpoint_reachable(url) { return Ok(()); }
+    }
+    Err("Swibo daemon did not become ready after Start.".to_string())
+}
+
+fn stop_daemon(url: &Url) -> Result<(), String> {
+    if !endpoint_reachable(url) { return Ok(()); }
+    let mut stream = TcpStream::connect_timeout(
+        &"127.0.0.1:17991".parse().expect("loopback address"),
+        Duration::from_secs(2),
+    ).map_err(|error| error.to_string())?;
+    stream.set_read_timeout(Some(Duration::from_secs(3)))
+        .map_err(|error| error.to_string())?;
+    stream.write_all(b"POST /api/shutdown HTTP/1.1\r\nHost: 127.0.0.1:17991\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+        .map_err(|error| error.to_string())?;
+    let mut buf = [0u8; 512];
+    let size = stream.read(&mut buf).map_err(|error| error.to_string())?;
+    if !String::from_utf8_lossy(&buf[..size]).starts_with("HTTP/1.1 202") {
+        return Err("Swibo daemon did not acknowledge shutdown.".to_string());
+    }
+    for _ in 0..40 {
+        if !endpoint_reachable(url) { return Ok(()); }
+        thread::sleep(Duration::from_millis(250));
+    }
+    Err("Swibo daemon did not stop cleanly.".to_string())
+}
+
+#[tauri::command]
+async fn swibo_daemon_start(root: tauri::State<'_, PathBuf>) -> Result<(), String> {
+    let root = root.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let url = Url::parse(DASHBOARD_URL).expect("valid dashboard URL");
+        start_daemon(&root, &url)
+    }).await.map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn swibo_daemon_stop() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let url = Url::parse(DASHBOARD_URL).expect("valid dashboard URL");
+        stop_daemon(&url)
+    }).await.map_err(|error| error.to_string())?
+}
+
+#[cfg(target_os = "windows")]
+fn install_daemon_menu(app: &mut tauri::App, root: PathBuf) -> tauri::Result<()> {
+    let start = MenuItemBuilder::with_id("daemon-start", "Start daemon").build(app)?;
+    let stop = MenuItemBuilder::with_id("daemon-stop", "Stop daemon").build(app)?;
+    let section = SubmenuBuilder::new(app, "Daemon")
+        .item(&start).item(&stop).build()?;
+    let menu = MenuBuilder::new(app).item(&section).build()?;
+    app.set_menu(menu)?;
+    app.on_menu_event(move |handle, event| {
+        let operation = match event.id().as_ref() {
+            "daemon-start" => "start",
+            "daemon-stop" => "stop",
+            _ => return,
+        };
+        let handle = handle.clone();
+        let root = root.clone();
+        thread::spawn(move || {
+            let url = Url::parse(DASHBOARD_URL).expect("valid dashboard URL");
+            let result = if operation == "start" {
+                start_daemon(&root, &url)
+            } else {
+                stop_daemon(&url)
+            };
+            if let Ok(()) = result {
+                if let Some(window) = handle.get_webview_window("main") {
+                    let destination = if operation == "start" { DASHBOARD_URL } else { STOPPED_URL };
+                    let _ = window.navigate(Url::parse(destination).expect("valid destination"));
+                }
+            }
+        });
+    });
+    Ok(())
+}
+
 fn ensure_daemon(root: &Path, url: &Url) -> bool {
     if endpoint_reachable(url) { return true; }
+    #[cfg(target_os = "windows")]
+    if start_scheduled_daemon().is_ok() {
+        for _ in 0..40 {
+            thread::sleep(Duration::from_millis(250));
+            if endpoint_reachable(url) { return true; }
+        }
+        return false;
+    }
     let mut command = Command::new("node");
     command
         .arg(root.join("src").join("daemon.js"))
@@ -181,5 +307,11 @@ mod tests {
         assert!(allowed_preview_navigation(&Url::parse("tauri://localhost/unified.html").unwrap()));
         assert!(!allowed_preview_navigation(&Url::parse("https://example.com/unified.html").unwrap()));
         assert!(!allowed_preview_navigation(&Url::parse("http://tauri.localhost/evil.html").unwrap()));
+    }
+
+    #[test]
+    fn daemon_stopped_page_is_an_allowed_local_bootstrap() {
+        let expected = Url::parse(DASHBOARD_URL).unwrap();
+        assert!(allowed_navigation(&Url::parse(STOPPED_URL).unwrap(), &expected));
     }
 }

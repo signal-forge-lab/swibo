@@ -557,5 +557,20 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) refresh({ silent: true });
 });
 
+document.querySelector("#daemon-stop")?.addEventListener("click", async (event) => {
+  if (!confirm("Stop the Swibo daemon? Managed runtimes will keep running.")) return;
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    await api("/api/shutdown", { method: "POST" });
+    // The desktop window must leave the daemon-served origin before its next
+    // load. The local Tauri page stays usable while the daemon is offline.
+    window.location.replace("http://tauri.localhost/index.html");
+  } catch (error) {
+    button.disabled = false;
+    showToast(error.message, true);
+  }
+});
+
 connectStatusEvents();
 refresh();

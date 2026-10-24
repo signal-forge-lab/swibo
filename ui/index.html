@@ -17,9 +17,12 @@
           <p>Local AI Service Switchboard</p>
         </div>
       </div>
-      <div class="connection" id="connection" data-state="loading">
-        <span class="lamp" aria-hidden="true"></span>
-        <span id="connection-label">Connecting</span>
+      <div class="connection-actions">
+        <div class="connection" id="connection" data-state="loading">
+          <span class="lamp" aria-hidden="true"></span>
+          <span id="connection-label">Connecting</span>
+        </div>
+        <button class="button small" id="daemon-stop" type="button" title="Stop only the Swibo manager, not its runtimes">Stop daemon</button>
       </div>
     </header>
 

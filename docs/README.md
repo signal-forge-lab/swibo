@@ -55,16 +55,22 @@ The desktop only ensures the daemon is started at desktop launch; it does
 not repair a later daemon exit. On Windows, install the daemon as a per-user
 Task Scheduler task instead. It starts on logon and can restart on failure
 up to 30 times at one-minute intervals. No periodic UI status sweep is added.
+The task runs Node through a hidden PowerShell wrapper, so a console window
+cannot accidentally be closed during normal desktop use.
 
 ```powershell
 pwsh -NoProfile -File scripts/manage-daemon-task.ps1 -Mode Status
 pwsh -NoProfile -File scripts/manage-daemon-task.ps1 -Mode Install
 ```
 
-To transfer an existing standalone daemon into Task Scheduler, explicitly use
-`-Mode Install -AdoptRunning`. Only the management daemon is transferred;
+To transfer an existing standalone daemon or legacy visible-console task,
+explicitly use `-Mode Install -AdoptRunning`. Only the management daemon is transferred;
 target services are not stopped. Repeating Install when an owned task is
 already running is a no-op. `-Mode Uninstall` removes only the task.
+The desktop offers **Stop daemon** in its header and **Start daemon** on its
+local offline screen. The native Windows **Daemon** menu offers the same
+controls even when the dashboard fails to load. Neither operation stops any
+managed target. **Stop all runtimes** is a separate, explicit action.
 Use `http://127.0.0.1:17991/api/health` to check runtime readiness.
 An exit code indicating failure is retried by the scheduler; an intentional
 clean exit or a process that remains alive but hangs is not automatically

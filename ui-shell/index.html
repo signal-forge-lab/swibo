@@ -10,15 +10,39 @@
     body{margin:0;min-height:100vh;display:grid;place-items:center;background:#020617}
     main{width:min(520px,calc(100vw - 40px));padding:24px;border:1px solid #28354a;border-radius:14px;background:#0b1020}
     h1{font-size:18px;margin:0 0 8px}p{color:#94a3b8;line-height:1.6;margin:0 0 18px}
-    a{display:inline-flex;min-height:36px;align-items:center;padding:0 13px;border-radius:8px;background:#4ade80;color:#06140c;text-decoration:none;font-weight:700}
-    a:focus-visible{outline:2px solid #dbeafe;outline-offset:3px}
+    a,button{display:inline-flex;min-height:36px;align-items:center;padding:0 13px;border-radius:8px;background:#4ade80;color:#06140c;text-decoration:none;font-weight:700;border:0;cursor:pointer;font-size:14px}
+    button:disabled{opacity:.5;cursor:wait}
+    a:focus-visible,button:focus-visible{outline:2px solid #dbeafe;outline-offset:3px}
+    .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    #error{margin-top:12px;font-size:12px}
   </style>
 </head>
 <body>
   <main>
-    <h1>Swibo daemon is unavailable</h1>
-    <p>Node.js daemonを起動できませんでした。daemonを起動した後、Dashboardへ再接続してください。</p>
-    <a href="http://127.0.0.1:17991/">Retry</a>
+    <h1>Swibo daemon is stopped</h1>
+    <p>管理対象のランタイムは停止していません。デーモンだけを開始し、モニターへ戻れます。</p>
+    <div class="actions">
+      <button id="start-daemon" type="button">Start daemon</button>
+      <a href="http://127.0.0.1:17991/">Reconnect</a>
+    </div>
+    <p id="error" role="status" aria-live="polite"></p>
   </main>
+  <script>
+    const start = document.querySelector("#start-daemon");
+    const message = document.querySelector("#error");
+    start.addEventListener("click", async () => {
+      start.disabled = true;
+      message.textContent = "Starting the Swibo daemon…";
+      try {
+        const invoke = window.__TAURI__?.core?.invoke;
+        if (!invoke) throw new Error("Use the Swibo desktop monitor to start the daemon.");
+        await invoke("swibo_daemon_start");
+        window.location.replace("http://127.0.0.1:17991/");
+      } catch (error) {
+        message.textContent = String(error);
+        start.disabled = false;
+      }
+    });
+  </script>
 </body>
 </html>
